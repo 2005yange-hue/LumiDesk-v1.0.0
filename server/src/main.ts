@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core'
+import { ValidationPipe } from '@nestjs/common'
 import { AppModule } from './app.module'
 
 async function bootstrap() {
@@ -13,6 +14,14 @@ async function bootstrap() {
 
   // 全局前缀
   app.setGlobalPrefix('api')
+
+  // 全局参数校验
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true
+    })
+  )
 
   const port = process.env.SERVER_PORT || 3000
   await app.listen(port)
