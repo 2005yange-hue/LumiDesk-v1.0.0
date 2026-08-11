@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { LLMService, RuntimeModelConfig } from '../llm/llm.service'
+import { LLMService } from '../llm/llm.service'
+import { RuntimeModelConfig } from '../llm/llm-types'
 import { LLMStreamChunk } from '../llm/llm-adapter.interface'
 import { PromptContextService } from './prompt-context.service'
 import { SendMessageDto } from './dto/send-message.dto'

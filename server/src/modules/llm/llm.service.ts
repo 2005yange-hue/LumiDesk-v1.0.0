@@ -3,14 +3,9 @@ import { ConfigService } from '@nestjs/config'
 import { ILLMAdapter, LLMRequest, LLMResponse, LLMStreamChunk, LLMMessage } from './llm-adapter.interface'
 import { OpenAIAdapter } from './adapters/openai.adapter'
 
-/** 运行时模型配置（可覆盖环境变量） */
-export interface RuntimeModelConfig {
-  apiKey: string
-  apiBaseUrl: string
-  model: string
-  temperature: number
-  maxTokens: number
-}
+import { RuntimeModelConfig } from './llm-types'
+
+export { RuntimeModelConfig }
 
 /**
  * LLM 调度服务

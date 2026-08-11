@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Res, HttpCode, Logger } from '@nestjs/common'
 import { Response } from 'express'
 import { ChatService } from './chat.service'
-import { RuntimeModelConfig } from '../llm/llm.service'
+import { RuntimeModelConfig } from '../llm/llm-types'
 import { HistoryMessageDto } from './dto/message-response.dto'
 
 @Controller('chat')
