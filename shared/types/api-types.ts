@@ -1,6 +1,8 @@
 // 共享 API 类型定义 - 前后端共用
 // 后续阶段逐步扩展
 
+// ──── 通用响应 ────
+
 export interface ApiResponse<T = unknown> {
   success: boolean
   data?: T

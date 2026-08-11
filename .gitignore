@@ -19,3 +19,4 @@ server/data/*.json
 
 # Logs
 *.log
+node_modules
