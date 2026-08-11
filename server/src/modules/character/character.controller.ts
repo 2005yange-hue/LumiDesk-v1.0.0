@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Logger } from '@nestjs/common'
+import { Controller, Get, Post, Put, Delete, Body, Param, Logger, NotFoundException } from '@nestjs/common'
 import { CharacterService } from './character.service'
 import { CreateCharacterDto } from './dto/create-character.dto'
 import { UpdateCharacterDto } from './dto/update-character.dto'
@@ -16,10 +16,10 @@ export class CharacterController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string): Character | { error: string } {
+  findOne(@Param('id') id: string): Character {
     const character = this.characterService.findOne(id)
     if (!character) {
-      return { error: '角色不存在' }
+      throw new NotFoundException('角色不存在')
     }
     return character
   }
@@ -33,10 +33,10 @@ export class CharacterController {
   update(
     @Param('id') id: string,
     @Body() dto: UpdateCharacterDto
-  ): Character | { error: string } {
+  ): Character {
     const updated = this.characterService.update(id, dto)
     if (!updated) {
-      return { error: '角色不存在' }
+      throw new NotFoundException('角色不存在')
     }
     return updated
   }
@@ -44,6 +44,9 @@ export class CharacterController {
   @Delete(':id')
   remove(@Param('id') id: string): { success: boolean } {
     const result = this.characterService.remove(id)
+    if (!result) {
+      throw new NotFoundException('角色不存在')
+    }
     return { success: result }
   }
 }
