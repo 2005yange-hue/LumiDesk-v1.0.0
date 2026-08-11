@@ -4,6 +4,7 @@ import { Repository } from 'typeorm'
 import { randomUUID } from 'crypto'
 import { Conversation } from './entities/conversation.entity'
 import { Message } from './entities/message.entity'
+import { MemoryEntry } from './entities/memory-entry.entity'
 
 @Injectable()
 export class MemoryService {
@@ -16,7 +17,9 @@ export class MemoryService {
     @InjectRepository(Conversation)
     private readonly conversationRepo: Repository<Conversation>,
     @InjectRepository(Message)
-    private readonly messageRepo: Repository<Message>
+    private readonly messageRepo: Repository<Message>,
+    @InjectRepository(MemoryEntry)
+    private readonly memoryRepo: Repository<MemoryEntry>
   ) {}
 
   /**
@@ -72,5 +75,49 @@ export class MemoryService {
       this.logger.log(`Created new conversation: ${convId}`)
     }
     return this.currentConversationId
+  }
+
+  // ──── 长期记忆 ────
+
+  /**
+   * 批量保存长期记忆条目
+   * 保存失败不抛出异常
+   */
+  async saveMemoryEntries(
+    entries: Array<{ type: string; content: string; importance: number }>,
+    userId = 'default'
+  ): Promise<void> {
+    try {
+      const records = entries.map((e) =>
+        this.memoryRepo.create({
+          user_id: userId,
+          type: e.type,
+          content: e.content,
+          importance: e.importance
+        })
+      )
+      await this.memoryRepo.save(records)
+      this.logger.debug(`Saved ${records.length} memory entries`)
+    } catch (error) {
+      this.logger.warn('Failed to save memory entries (non-blocking):', error)
+    }
+  }
+
+  /**
+   * 查询用户的高重要性记忆（Top N）
+   * @param userId 用户 ID
+   * @param limit  返回数量上限
+   */
+  async getMemoriesByUser(userId = 'default', limit = 10): Promise<MemoryEntry[]> {
+    try {
+      return this.memoryRepo.find({
+        where: { user_id: userId },
+        order: { importance: 'DESC', created_at: 'DESC' },
+        take: limit
+      })
+    } catch (error) {
+      this.logger.warn('Failed to load memories:', error)
+      return []
+    }
   }
 }

@@ -30,7 +30,7 @@ export class ChatService {
   ): Promise<AsyncIterable<LLMStreamChunk>> {
     this.logger.log(`Received message: ${dto.content.substring(0, 50)}...`)
 
-    let messages = this.promptContext.buildMessages(dto.content, history, characterId)
+    let messages = await this.promptContext.buildMessages(dto.content, history, characterId)
 
     // 上下文窗口检测与裁剪
     const modelName = modelConfig?.model
