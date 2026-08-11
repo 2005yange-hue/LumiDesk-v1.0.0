@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { EmbeddingService } from './embedding/embedding.service'
-import { ChromaClient, ChromaSearchResult } from './chroma/chroma.client'
+import { ChromaService, ChromaSearchResult } from './chroma/chroma.service'
 
 /** 向量记忆搜索结果 */
 export interface MemorySearchResult {
@@ -9,8 +9,8 @@ export interface MemorySearchResult {
   type: string
 }
 
-/** 向量搜索超时时间（毫秒） */
-const SEARCH_TIMEOUT_MS = 2000
+/** Embedding 超时时间（毫秒） */
+const EMBEDDING_TIMEOUT_MS = 5000
 /** 向量索引超时时间（毫秒，写入操作更宽松） */
 const INDEX_TIMEOUT_MS = 10_000
 
@@ -19,11 +19,11 @@ const INDEX_TIMEOUT_MS = 10_000
  * 提供记忆向量化存储与语义搜索能力
  *
  * 流程：
- *   text → EmbeddingService → 向量 → ChromaClient → 存储
- *   query → EmbeddingService → 向量 → ChromaClient → 相似搜索
+ *   MemoryEntry → EmbeddingService → ChromaService → 存储
+ *   query → EmbeddingService → ChromaService → 相似搜索
  *
  * 性能保障：
- *   - search() 最多 2s 超时，超时自动降级
+ *   - embedding 最多 5s 超时
  *   - 所有错误均静默降级，不影响主聊天流程
  */
 @Injectable()
@@ -32,27 +32,31 @@ export class VectorMemoryService {
 
   constructor(
     private readonly embeddingService: EmbeddingService,
-    private readonly chromaClient: ChromaClient
+    private readonly chromaService: ChromaService
   ) {}
 
   /**
-   * 将记忆向量化并存储到 ChromaDB
-   * 带超时保护，失败不影响 MySQL 主流程
+   * 将 MemoryEntry 向量化并存储到 ChromaDB
+   * 返回 Chroma 中的向量 ID，失败返回 null
    */
   async indexMemory(
     memoryId: string,
     userId: string,
     content: string,
     metadata: Record<string, unknown>
-  ): Promise<void> {
+  ): Promise<string | null> {
+    this.logger.log(`[VectorMemory] index memory id=${memoryId}`)
+
     try {
       await this.withTimeout(
         this.doIndex(memoryId, userId, content, metadata),
         INDEX_TIMEOUT_MS,
         'indexMemory'
       )
+      return memoryId
     } catch (error) {
-      this.logger.warn('Vector indexing failed (non-blocking):', error)
+      this.logger.warn(`[VectorMemory] index failed for memory id=${memoryId}:`, error)
+      return null
     }
   }
 
@@ -62,22 +66,29 @@ export class VectorMemoryService {
     content: string,
     metadata: Record<string, unknown>
   ): Promise<void> {
-    const embedStart = Date.now()
-    const embedding = await this.embeddingService.embed(content)
-    this.logger.debug(`[indexMemory] embedding took ${Date.now() - embedStart}ms`)
+    this.logger.log('[Embedding] request start')
 
-    await this.chromaClient.addMemory({
+    const embedStart = Date.now()
+    const embedding = await this.withTimeout(
+      this.embeddingService.embed(content),
+      EMBEDDING_TIMEOUT_MS,
+      'embedding'
+    )
+    this.logger.log(`[Embedding] success dimension=${embedding.length} (${Date.now() - embedStart}ms)`)
+
+    await this.chromaService.addMemory({
       id: memoryId,
       userId,
       content,
       embedding,
       metadata
     })
-    this.logger.debug(`Indexed memory: ${memoryId}`)
+
+    this.logger.log(`[VectorMemory] stored in chroma memory id=${memoryId}`)
   }
 
   /**
-   * 语义搜索相关记忆（带 2s 超时保护）
+   * 语义搜索相关记忆（带超时保护）
    * 超时或失败返回空数组，调用方降级 MySQL
    */
   async search(
@@ -86,40 +97,39 @@ export class VectorMemoryService {
     topK?: number
   ): Promise<MemorySearchResult[]> {
     const totalStart = Date.now()
+    this.logger.log(`[VectorMemory] search query: "${query.substring(0, 80)}"`)
 
     try {
       const result = await this.withTimeout(
         this.doSearch(query, userId, topK),
-        SEARCH_TIMEOUT_MS,
+        EMBEDDING_TIMEOUT_MS,
         'vector search'
       )
-      this.logger.debug(`[search] total took ${Date.now() - totalStart}ms, returned ${result.length} results`)
+      this.logger.log(`[VectorMemory] found ${result.length} memories (${Date.now() - totalStart}ms)`)
       return result
     } catch (error) {
-      const elapsed = Date.now() - totalStart
-      this.logger.warn(`Vector search failed or timed out after ${elapsed}ms:`, error)
+      this.logger.warn(`[VectorMemory] search failed after ${Date.now() - totalStart}ms:`, error)
       return []
     }
   }
 
-  /**
-   * 实际执行语义搜索（不含超时包装）
-   */
   private async doSearch(
     query: string,
     userId: string,
     topK?: number
   ): Promise<MemorySearchResult[]> {
-    // 步骤 1：文本转向量
-    const embedStart = Date.now()
-    const embedding = await this.embeddingService.embed(query)
-    this.logger.debug(`[search] embedding took ${Date.now() - embedStart}ms`)
+    this.logger.log('[Embedding] request start')
 
-    // 步骤 2：Chroma 相似度搜索
-    const chromaStart = Date.now()
+    const embedStart = Date.now()
+    const embedding = await this.withTimeout(
+      this.embeddingService.embed(query),
+      EMBEDDING_TIMEOUT_MS,
+      'embedding'
+    )
+    this.logger.log(`[Embedding] success dimension=${embedding.length} (${Date.now() - embedStart}ms)`)
+
     const k = topK ?? 5
-    const results = await this.chromaClient.searchSimilar(embedding, userId, k)
-    this.logger.debug(`[search] chroma query took ${Date.now() - chromaStart}ms`)
+    const results = await this.chromaService.searchSimilar(embedding, userId, k)
 
     return results.map((r: ChromaSearchResult) => ({
       content: r.content,
@@ -130,9 +140,6 @@ export class VectorMemoryService {
 
   /**
    * Promise 超时包装
-   * @param promise  原始异步操作
-   * @param ms       超时毫秒数
-   * @param label    操作名称（日志用）
    */
   private withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
     return Promise.race([

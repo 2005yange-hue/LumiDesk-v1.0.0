@@ -9,6 +9,10 @@ export class MemoryEntry {
   @Column({ type: 'varchar', length: 36, default: 'default' })
   user_id: string
 
+  /** ChromaDB 中的向量 ID，用于 MySQL ↔ Chroma 关联 */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  vector_id: string | null
+
   @Column({ type: 'varchar', length: 32 })
   type: string
 

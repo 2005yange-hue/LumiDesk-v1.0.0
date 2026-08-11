@@ -119,16 +119,16 @@ export class PromptContextService {
       // 1. 优先向量语义搜索
       const vectorResults = await this.vectorMemory.search(userMessage)
       if (vectorResults.length > 0) {
-        const items = vectorResults.map((r) => `[${r.type}] ${r.content}`)
-        return `[用户画像 - 长期记忆]\n以下是关于用户的已知信息，请在对话中参考：\n${items.map((i) => '- ' + i).join('\n')}`
+        const items = vectorResults.map((r) => `  <memory type="${r.type}" score="${r.score.toFixed(2)}">${r.content}</memory>`)
+        return `<relevant_memories>\n${items.join('\n')}\n</relevant_memories>`
       }
 
       // 2. 回退：MySQL 高重要性记忆
       const entries = await this.memoryService.getMemoriesByUser()
       if (entries.length === 0) return null
 
-      const items = entries.map((e) => `[${e.type}] ${e.content}`)
-      return `[用户画像 - 长期记忆]\n以下是关于用户的已知信息，请在对话中参考：\n${items.map((i) => '- ' + i).join('\n')}`
+      const items = entries.map((e) => `  <memory type="${e.type}">${e.content}</memory>`)
+      return `<relevant_memories>\n${items.join('\n')}\n</relevant_memories>`
     } catch (error) {
       this.logger.warn('Failed to load memories:', error)
 
@@ -136,8 +136,8 @@ export class PromptContextService {
       try {
         const entries = await this.memoryService.getMemoriesByUser()
         if (entries.length === 0) return null
-        const items = entries.map((e) => `[${e.type}] ${e.content}`)
-        return `[用户画像 - 长期记忆]\n以下是关于用户的已知信息，请在对话中参考：\n${items.map((i) => '- ' + i).join('\n')}`
+        const items = entries.map((e) => `  <memory type="${e.type}">${e.content}</memory>`)
+        return `<relevant_memories>\n${items.join('\n')}\n</relevant_memories>`
       } catch {
         return null
       }

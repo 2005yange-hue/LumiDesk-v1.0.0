@@ -23,8 +23,8 @@ export interface ChromaSearchResult {
  * 管理 AI 记忆的向量存储与语义检索
  */
 @Injectable()
-export class ChromaClient {
-  private readonly logger = new Logger(ChromaClient.name)
+export class ChromaService {
+  private readonly logger = new Logger(ChromaService.name)
   private readonly baseUrl: string
   private collectionId: string | null = null
 
@@ -33,18 +33,16 @@ export class ChromaClient {
   }
 
   private get collectionName(): string {
-    return this.configService.get<string>('VECTOR_COLLECTION', 'ai_memory')
+    return this.configService.get<string>('VECTOR_COLLECTION', 'memory_entries')
   }
 
   /**
    * 确保 Collection 存在（惰性创建）
-   * 先查找已有 Collection，找不到则新建
    */
   private async ensureCollection(): Promise<string> {
     if (this.collectionId) return this.collectionId
 
     try {
-      // 尝试获取已有 Collection
       const existing = await this.fetchJson<Array<{ id: string; name: string }>>(
         `${this.baseUrl}/api/v1/collections`
       )
@@ -52,14 +50,13 @@ export class ChromaClient {
       const found = existing?.find((c) => c.name === this.collectionName)
       if (found) {
         this.collectionId = found.id
-        this.logger.log(`Found existing collection: ${this.collectionName}`)
+        this.logger.log(`[Chroma] Found collection: ${this.collectionName}`)
         return found.id
       }
     } catch {
       // 获取失败，尝试直接创建
     }
 
-    // 新建 Collection
     const created = await this.fetchJson<{ id: string }>(
       `${this.baseUrl}/api/v1/collections`,
       {
@@ -72,7 +69,7 @@ export class ChromaClient {
     )
 
     this.collectionId = created.id
-    this.logger.log(`Created collection: ${this.collectionName}`)
+    this.logger.log(`[Chroma] Created collection: ${this.collectionName}`)
     return created.id
   }
 
@@ -92,14 +89,11 @@ export class ChromaClient {
       })
     })
 
-    this.logger.debug(`Added vector for memory: ${payload.id}`)
+    this.logger.log(`[Chroma] Stored vector for memory: ${payload.id}`)
   }
 
   /**
    * 语义相似度搜索
-   * @param queryEmbedding 查询文本的向量
-   * @param userId        按用户过滤
-   * @param topK          返回结果数量
    */
   async searchSimilar(
     queryEmbedding: number[],
@@ -134,9 +128,6 @@ export class ChromaClient {
     }))
   }
 
-  /**
-   * 统一的 JSON HTTP 请求封装
-   */
   private async fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     const res = await fetch(url, {
       headers: { 'Content-Type': 'application/json' },

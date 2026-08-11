@@ -6,7 +6,6 @@ import { PromptContextService } from './prompt-context.service'
 import { ContextWindowManager } from '../context-window/context-window.manager'
 import { MemoryExtractorService } from '../memory/memory-extractor.service'
 import { MemoryService } from '../memory/memory.service'
-import { VectorMemoryService } from '../vector-memory/vector-memory.service'
 import { SendMessageDto } from './dto/send-message.dto'
 import { HistoryMessageDto } from './dto/message-response.dto'
 
@@ -19,8 +18,7 @@ export class ChatService {
     private readonly promptContext: PromptContextService,
     private readonly contextWindow: ContextWindowManager,
     private readonly memoryExtractor: MemoryExtractorService,
-    private readonly memoryService: MemoryService,
-    private readonly vectorMemory: VectorMemoryService
+    private readonly memoryService: MemoryService
   ) {}
 
   /**
@@ -54,7 +52,7 @@ export class ChatService {
   /**
    * 从用户消息中异步提取长期记忆（fire-and-forget）
    *
-   * 流程：LLM 提取 → MySQL 存储 → Embedding → Chroma 向量索引
+   * 流程：LLM 提取 → MySQL 存储（自动触发向量索引）
    * 完全异步，不阻塞 SSE 流式响应
    * 失败不影响聊天
    */
@@ -68,23 +66,12 @@ export class ChatService {
           this.logger.log('[Memory] No extractable memories found')
           return
         }
-        this.logger.log(`[Memory] Extracted ${entries.length} memories, saving to MySQL...`)
+        this.logger.log(`[Memory] Extracted ${entries.length} memories, saving to MySQL + Chroma...`)
         return this.memoryService.saveMemoryEntries(entries)
       })
       .then((saved) => {
-        if (!saved || saved.length === 0) return
-        this.logger.log(`[Memory] Saved ${saved.length} memory entries to MySQL, indexing to Chroma...`)
-        for (const entry of saved) {
-          this.vectorMemory.indexMemory(
-            String(entry.id),
-            entry.user_id,
-            entry.content,
-            {
-              type: entry.type,
-              importance: entry.importance,
-              createdAt: entry.created_at
-            }
-          )
+        if (saved && saved.length > 0) {
+          this.logger.log(`[Memory] Pipeline complete: ${saved.length} memories saved`)
         }
       })
       .catch((err) => {
