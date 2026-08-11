@@ -112,7 +112,7 @@ function scrollToBottom(): void {
 }
 
 // ──── 发送消息 ────
-async function handleSend(): void {
+async function handleSend(): Promise<void> {
   if (!inputText.value.trim() || isStreaming.value) return
 
   const text = inputText.value
