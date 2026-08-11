@@ -1,0 +1,15 @@
+分析以下屏幕截图内容，输出JSON格式：
+
+{
+  "active_application": "应用名称",
+  "application_type": "IDE|浏览器|文档|游戏|聊天|视频|其他",
+  "general_activity": "用户正在做什么的简短描述",
+  "detail_indicators": ["可能的状态线索"],
+  "should_interact": true/false,
+  "interact_reason": "如果需要互动，说明原因"
+}
+
+隐私规则：
+- 不要输出任何个人身份信息（姓名、密码、账号）
+- 不要输出具体的文件路径或URL
+- 只输出应用类型和活动描述

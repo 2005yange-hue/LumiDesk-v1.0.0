@@ -1,0 +1,31 @@
+appId: com.ai-companion.desktop
+productName: AI桌面伙伴
+copyright: Copyright © 2026
+
+directories:
+  output: release
+  buildResources: resources
+
+files:
+  - dist/**/*
+  - dist-electron/**/*
+
+win:
+  target:
+    - nsis
+  icon: resources/icons/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+
+mac:
+  target:
+    - dmg
+  icon: resources/icons/icon.icns
+
+linux:
+  target:
+    - AppImage
+  icon: resources/icons
