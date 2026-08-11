@@ -10,6 +10,9 @@ const STORAGE_KEY = 'ai-companion-settings'
  * 开发阶段使用 localStorage 持久化，后续可迁移到后端
  */
 export const useSettingsStore = defineStore('settings', () => {
+  /** 当前选中的角色 ID（用于聊天） */
+  const activeCharacterId = ref<string>(loadCharacterId())
+
   // ──── 状态 ────
   const modelSettings = ref<ModelSettings>(loadSettings())
 
@@ -53,6 +56,16 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.removeItem(STORAGE_KEY)
   }
 
+  /** 设置活跃角色 */
+  function setActiveCharacterId(id: string): void {
+    activeCharacterId.value = id
+    localStorage.setItem('ai-companion-char', id)
+  }
+
+  function loadCharacterId(): string {
+    return localStorage.getItem('ai-companion-char') || ''
+  }
+
   /** 获取当前配置（用于发送给后端） */
   function getModelConfig() {
     return {
@@ -66,9 +79,11 @@ export const useSettingsStore = defineStore('settings', () => {
 
   return {
     modelSettings,
+    activeCharacterId,
     updateModelSettings,
     applyPreset,
     resetSettings,
+    setActiveCharacterId,
     getModelConfig
   }
 })

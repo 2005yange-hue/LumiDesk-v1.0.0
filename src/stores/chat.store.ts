@@ -53,13 +53,15 @@ export const useChatStore = defineStore('chat', () => {
     isStreaming.value = true
     currentStreamContent.value = ''
 
-    // 获取当前模型配置
+    // 获取当前模型配置 + 角色
     const settingsStore = useSettingsStore()
     const modelConfig = settingsStore.getModelConfig()
+    const characterId = settingsStore.activeCharacterId
 
     await sendMessageStream(
       { content: content.trim(), history: getHistory() },
       modelConfig,
+      characterId,
       (chunk) => {
         if (chunk.fullContent !== undefined) {
           currentStreamContent.value = chunk.fullContent

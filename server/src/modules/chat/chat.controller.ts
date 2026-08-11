@@ -12,7 +12,7 @@ export class ChatController {
 
   /**
    * 发送消息 - SSE 流式响应
-   * 支持传入历史记录 + 运行时模型配置
+   * 支持传入历史记录 + 运行时模型配置 + 角色选择
    */
   @Post('send')
   @HttpCode(200)
@@ -21,6 +21,7 @@ export class ChatController {
       content: string
       history?: HistoryMessageDto[]
       modelConfig?: Partial<RuntimeModelConfig>
+      characterId?: string
     },
     @Res() res: Response
   ) {
@@ -34,7 +35,8 @@ export class ChatController {
       const stream = await this.chatService.sendMessageStream(
         { content: body.content },
         body.history || [],
-        body.modelConfig
+        body.modelConfig,
+        body.characterId
       )
 
       let fullContent = ''

@@ -4,9 +4,10 @@ import { AppController } from './app.controller'
 import { AppService } from './app.service'
 import { LLMModule } from './modules/llm/llm.module'
 import { ChatModule } from './modules/chat/chat.module'
+import { CharacterModule } from './modules/character/character.module'
 
 // 后续阶段将导入：
-// CharacterModule, MemoryModule, VisionModule,
+// MemoryModule, VisionModule,
 // AgentModule, EmotionModule, UserModule
 
 @Module({
@@ -16,7 +17,8 @@ import { ChatModule } from './modules/chat/chat.module'
       envFilePath: '../.env'
     }),
     LLMModule,
-    ChatModule
+    ChatModule,
+    CharacterModule
   ],
   controllers: [AppController],
   providers: [AppService]

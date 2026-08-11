@@ -10,28 +10,34 @@ const API_BASE = '/api'
 export async function sendMessageStream(
   request: SendMessageRequest,
   modelConfig: ModelSettings,
+  characterId: string,
   onChunk: (chunk: ChatStreamChunk) => void,
   onError: (error: string) => void,
   onComplete: (messageId: string) => void,
   signal?: AbortSignal
 ): Promise<void> {
   try {
+    const body: Record<string, unknown> = {
+      content: request.content,
+      history: request.history,
+      modelConfig: {
+        apiKey: modelConfig.apiKey,
+        apiBaseUrl: modelConfig.apiBaseUrl,
+        model: modelConfig.model,
+        temperature: modelConfig.temperature,
+        maxTokens: modelConfig.maxTokens
+      }
+    }
+
+    // 如果选择了角色，传入 characterId
+    if (characterId) {
+      body.characterId = characterId
+    }
+
     const response = await fetch(`${API_BASE}/chat/send`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        content: request.content,
-        history: request.history,
-        modelConfig: {
-          apiKey: modelConfig.apiKey,
-          apiBaseUrl: modelConfig.apiBaseUrl,
-          model: modelConfig.model,
-          temperature: modelConfig.temperature,
-          maxTokens: modelConfig.maxTokens
-        }
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
       signal
     })
 

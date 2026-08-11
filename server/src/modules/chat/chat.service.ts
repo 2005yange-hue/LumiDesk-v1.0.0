@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { LLMService, RuntimeModelConfig } from '../llm/llm.service'
 import { LLMStreamChunk, LLMMessage } from '../llm/llm-adapter.interface'
+import { CharacterService } from '../character/character.service'
+import { PersonaBuilder } from '../character/persona-builder'
 import { SendMessageDto } from './dto/send-message.dto'
 import { HistoryMessageDto } from './dto/message-response.dto'
 import * as fs from 'fs'
@@ -9,26 +11,30 @@ import * as path from 'path'
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name)
-  private characterPrompt: string
   private systemPrompt: string
+  private fallbackCharacterPrompt: string
 
-  constructor(private readonly llmService: LLMService) {
-    this.characterPrompt = this.loadPrompt('character.txt')
+  constructor(
+    private readonly llmService: LLMService,
+    private readonly characterService: CharacterService
+  ) {
     this.systemPrompt = this.loadPrompt('system.txt')
+    this.fallbackCharacterPrompt = this.loadPrompt('character.txt')
   }
 
   /**
    * 发送消息并获取流式响应
+   * @param characterId 可选，指定使用的角色ID，不传则使用默认角色
    */
   async sendMessageStream(
     dto: SendMessageDto,
     history: HistoryMessageDto[] = [],
-    modelConfig?: Partial<RuntimeModelConfig>
+    modelConfig?: Partial<RuntimeModelConfig>,
+    characterId?: string
   ): Promise<AsyncIterable<LLMStreamChunk>> {
     this.logger.log(`Received message: ${dto.content.substring(0, 50)}...`)
 
-    // 构建完整消息上下文：系统 Prompt → 角色 Prompt → 历史记录 → 当前消息
-    const messages = this.buildMessages(dto.content, history)
+    const messages = this.buildMessages(dto.content, history, characterId)
 
     return this.llmService.chatStream(messages, modelConfig)
   }
@@ -38,7 +44,8 @@ export class ChatService {
    */
   private buildMessages(
     userMessage: string,
-    history: HistoryMessageDto[]
+    history: HistoryMessageDto[],
+    characterId?: string
   ): LLMMessage[] {
     const messages: LLMMessage[] = []
 
@@ -47,13 +54,14 @@ export class ChatService {
       messages.push({ role: 'system', content: this.systemPrompt })
     }
 
-    // 角色人格
-    if (this.characterPrompt) {
-      messages.push({ role: 'system', content: this.characterPrompt })
+    // 角色人格 — 动态生成或回退
+    const characterPrompt = this.buildCharacterPrompt(characterId)
+    if (characterPrompt) {
+      messages.push({ role: 'system', content: characterPrompt })
     }
 
-    // 历史对话（最近10轮）
-    const recentHistory = history.slice(-20) // 最多保留20条历史
+    // 历史对话
+    const recentHistory = history.slice(-20)
     for (const msg of recentHistory) {
       messages.push({ role: msg.role, content: msg.content })
     }
@@ -62,6 +70,35 @@ export class ChatService {
     messages.push({ role: 'user', content: userMessage })
 
     return messages
+  }
+
+  /**
+   * 构建角色人格 Prompt
+   * 优先使用 CharacterService 中的角色数据，回退到文件模板
+   */
+  private buildCharacterPrompt(characterId?: string): string {
+    // 1. 尝试从 CharacterService 获取指定角色
+    if (characterId) {
+      const character = this.characterService.findOne(characterId)
+      if (character) {
+        this.logger.log(`Using character: ${character.name}`)
+        return PersonaBuilder.build(character)
+      }
+    }
+
+    // 2. 获取默认角色
+    const defaultChar = this.characterService.getDefault()
+    if (defaultChar) {
+      this.logger.log(`Using default character: ${defaultChar.name}`)
+      return PersonaBuilder.build(defaultChar)
+    }
+
+    // 3. 回退到文件模板
+    if (this.fallbackCharacterPrompt) {
+      return this.fallbackCharacterPrompt
+    }
+
+    return ''
   }
 
   /**

@@ -1,8 +1,21 @@
+# Environment
+.env
+.env.*
+
+# Dependencies
 node_modules/
+server/node_modules/
+
+# Build output
 dist/
 dist-electron/
-release/
-.env
+server/dist/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Runtime data
+server/data/*.json
+
+# Logs
 *.log
-.DS_Store
-Thumbs.db
