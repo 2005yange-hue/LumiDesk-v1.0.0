@@ -4,9 +4,10 @@ import { ChatService } from './chat.service'
 import { PromptContextService } from './prompt-context.service'
 import { CharacterModule } from '../character/character.module'
 import { MemoryModule } from '../memory/memory.module'
+import { ContextWindowModule } from '../context-window/context-window.module'
 
 @Module({
-  imports: [CharacterModule, MemoryModule],
+  imports: [CharacterModule, MemoryModule, ContextWindowModule],
   controllers: [ChatController],
   providers: [ChatService, PromptContextService],
   exports: [ChatService]
