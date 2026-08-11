@@ -1,14 +1,12 @@
 import { Module } from '@nestjs/common'
-import { ConfigModule } from '@nestjs/config'
+import { ConfigModule, ConfigService } from '@nestjs/config'
+import { TypeOrmModule } from '@nestjs/typeorm'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 import { LLMModule } from './modules/llm/llm.module'
 import { ChatModule } from './modules/chat/chat.module'
 import { CharacterModule } from './modules/character/character.module'
-
-// 后续阶段将导入：
-// MemoryModule, VisionModule,
-// AgentModule, EmotionModule, UserModule
+import { MemoryModule } from './modules/memory/memory.module'
 
 @Module({
   imports: [
@@ -16,9 +14,25 @@ import { CharacterModule } from './modules/character/character.module'
       isGlobal: true,
       envFilePath: '../.env'
     }),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        type: 'mysql',
+        host: config.get<string>('MYSQL_HOST', 'localhost'),
+        port: config.get<number>('MYSQL_PORT', 3306),
+        username: config.get<string>('MYSQL_USER', 'root'),
+        password: config.get<string>('MYSQL_PASSWORD', ''),
+        database: config.get<string>('MYSQL_DATABASE', 'ai_companion'),
+        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        synchronize: config.get<string>('NODE_ENV') !== 'production',
+        logging: config.get<string>('NODE_ENV') !== 'production'
+      })
+    }),
     LLMModule,
     ChatModule,
-    CharacterModule
+    CharacterModule,
+    MemoryModule
   ],
   controllers: [AppController],
   providers: [AppService]

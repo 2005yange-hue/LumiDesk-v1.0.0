@@ -1,6 +1,7 @@
 import { Controller, Post, Body, Res, HttpCode, Logger } from '@nestjs/common'
 import { Response } from 'express'
 import { ChatService } from './chat.service'
+import { MemoryService } from '../memory/memory.service'
 import { RuntimeModelConfig } from '../llm/llm-types'
 import { HistoryMessageDto } from './dto/message-response.dto'
 import { formatLLMError } from '../../common/error-formatter'
@@ -9,7 +10,10 @@ import { formatLLMError } from '../../common/error-formatter'
 export class ChatController {
   private readonly logger = new Logger(ChatController.name)
 
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly memoryService: MemoryService
+  ) {}
 
   /**
    * 发送消息 - SSE 流式响应
@@ -50,6 +54,9 @@ export class ChatController {
       // 发送结束事件
       res.write(`data: ${JSON.stringify({ content: '', fullContent, done: true, id: Date.now().toString() })}\n\n`)
       res.end()
+
+      // 异步持久化（不阻塞 SSE 响应，失败自动记录日志）
+      this.memoryService.saveMessages(body.content, fullContent, body.characterId)
     } catch (error) {
       this.logger.error('Chat error:', error)
       // 错误也不终止 SSE，确保前端能收到错误信息
