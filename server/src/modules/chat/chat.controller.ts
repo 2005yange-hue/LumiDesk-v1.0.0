@@ -81,14 +81,21 @@ export class ChatController {
    * 流程：LLM 提取 → MySQL 存储 → Embedding → Chroma 向量索引
    */
   private extractAndSaveMemory(userMessage: string): void {
+    this.logger.log(`Memory extraction pipeline started for: "${userMessage.substring(0, 80)}"`)
+
     this.memoryExtractor
       .extractMemories(userMessage)
       .then((entries) => {
-        if (entries.length === 0) return
+        if (entries.length === 0) {
+          this.logger.log('No memories extracted, skipping save')
+          return
+        }
+        this.logger.log(`Memories extracted, saving ${entries.length} entries to MySQL...`)
         return this.memoryService.saveMemoryEntries(entries)
       })
       .then((saved) => {
         if (!saved || saved.length === 0) return
+        this.logger.log(`Saved ${saved.length} memory entries to MySQL, starting vector indexing...`)
         // 异步向量化（fire-and-forget，失败不阻塞）
         for (const entry of saved) {
           this.vectorMemory.indexMemory(

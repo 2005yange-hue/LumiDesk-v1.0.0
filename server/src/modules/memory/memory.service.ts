@@ -98,7 +98,7 @@ export class MemoryService {
         })
       )
       const saved = await this.memoryRepo.save(records)
-      this.logger.debug(`Saved ${saved.length} memory entries`)
+      this.logger.log(`Saved ${saved.length} memory entries: ${saved.map((e) => `[${e.type}] ${e.content}`).join(', ')}`)
       return saved
     } catch (error) {
       this.logger.warn('Failed to save memory entries (non-blocking):', error)

@@ -38,7 +38,7 @@ export class MemoryExtractorService {
 
       const jsonMatch = response.content.match(/\[[\s\S]*\]/)
       if (!jsonMatch) {
-        this.logger.debug('No extractable memories found')
+        this.logger.log('No extractable memories found in LLM response')
         return []
       }
 
