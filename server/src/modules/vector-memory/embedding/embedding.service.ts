@@ -41,11 +41,16 @@ export class EmbeddingService implements EmbeddingProvider {
   }
 
   async embed(text: string): Promise<number[]> {
+    const start = Date.now()
     const results = await this.embedBatch([text])
+    this.logger.debug(`[embed] single text (len=${text.length}) took ${Date.now() - start}ms`)
     return results[0]
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
+    const start = Date.now()
+    const totalChars = texts.reduce((sum, t) => sum + t.length, 0)
+
     try {
       const response = await this.client.embeddings.create({
         model: this.model,
@@ -55,9 +60,13 @@ export class EmbeddingService implements EmbeddingProvider {
 
       // 按输入顺序排序返回
       const sorted = response.data.sort((a, b) => a.index - b.index)
+      const elapsed = Date.now() - start
+      this.logger.debug(`[embedBatch] ${texts.length} texts (${totalChars} chars) took ${elapsed}ms`)
+
       return sorted.map((d) => d.embedding)
     } catch (error) {
-      this.logger.error('Embedding API call failed:', error)
+      const elapsed = Date.now() - start
+      this.logger.error(`Embedding API call failed after ${elapsed}ms:`, error)
       throw error
     }
   }
