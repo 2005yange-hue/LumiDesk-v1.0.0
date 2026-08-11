@@ -83,6 +83,72 @@
 - `src/stores/chat.store.ts` — 传递 characterId
 - `src/views/SettingsView.vue` — 新增角色管理 + 创建弹窗
 
+### 优化（架构评审 P0）
+- 删除 `llm-adapter.interface.ts` 无用 import `Stream from 'openai/streaming'`
+- `server/src/main.ts` 注册全局 `ValidationPipe`（whitelist + transform）
+- 新增 `PromptContextService` 上下文聚合层，从 ChatService 分离消息组装逻辑，预留 Memory/Vision/Emotion 扩展点
+- 修复 `ChatView.vue` 异步函数返回类型 `void` → `Promise<void>`
+
+### 优化（架构评审 P1）
+- `RuntimeModelConfig` 类型迁移至独立 `llm-types.ts`，Chat 模块不再依赖 `llm.service` 的类型导出
+- 提取 `formatLLMError` 至 `server/src/common/error-formatter.ts` 共享工具类
+- 全局 `ResponseInterceptor` 统一 REST API 返回格式：`{ success, data, message, timestamp }`，SSE 接口自动跳过
+- `CharacterController` 错误处理改为 `throw NotFoundException`，移除 `return { error }` 模式
+- 拆分 `SettingsView.vue` 为 `ModelSettings` / `CharacterSettings` / `AboutSection` 三个子组件
+- `Character` 接口提升至 `shared/types/character.ts`，前端通过 `@shared` 别名重导出（服务端受 `rootDir` 限制本地保持同步定义）
+
+---
+
+## v0.5.0 — 记忆系统（Part 1）
+
+**日期：** 2026-08-12
+
+### 新增
+- Memory 模块：`MemoryService` + `MemoryModule`（聊天记录持久化）
+- TypeORM 实体：`Conversation`（对话表）+ `Message`（消息表）
+- MySQL 数据库连接配置（`TypeOrmModule.forRootAsync`，支持 `NODE_ENV` 控制 `synchronize`）
+- 聊天消息自动入库：SSE 流式完成后异步保存，失败不影响响应
+
+### 修改
+- `server/src/app.module.ts` — 注册 TypeORM + MemoryModule
+- `server/src/modules/chat/chat.module.ts` — 导入 MemoryModule
+- `server/src/modules/chat/chat.controller.ts` — 注入 MemoryService，流式完成后持久化
+
+### 新增（Commit 3）
+- 长期记忆系统：`MemoryEntry` 表 + `MemoryExtractorService`
+- LLM 自动提取用户信息（身份/偏好/习惯/兴趣/目标）
+- `PromptContextService` 注入长期记忆到对话上下文
+- 记忆提取 fire-and-forget 异步流程，不阻塞 SSE 响应
+
+### 修改
+- `server/src/modules/memory/memory.service.ts` — 新增 `saveMemoryEntries` / `getMemoriesByUser`
+- `server/src/modules/memory/memory.module.ts` — 注册 MemoryEntry + MemoryExtractorService
+- `server/src/modules/chat/prompt-context.service.ts` — 注入 MemoryService，加载记忆到上下文
+- `server/src/modules/chat/chat.controller.ts` — 注入 MemoryExtractorService，异步提取记忆
+- `server/src/modules/chat/chat.service.ts` — `buildMessages` 改为 `await`
+
+### 数据库变化
+- 新增 `memory_entries` 表（id / user_id / type / content / importance / created_at / updated_at）
+
+### 新增（Commit 4）
+- 向量记忆系统：`VectorMemoryModule` + `VectorMemoryService`
+- `EmbeddingProvider` 接口 + `EmbeddingService` 实现（OpenAI Embedding API）
+- `ChromaClient` REST API 客户端（Collection 管理 / 向量存储 / 语义检索）
+- 记忆向量化流程：MySQL 保存 → Embedding → Chroma 索引
+- `PromptContextService` 集成向量语义搜索，优先检索相关记忆，失败回退 MySQL
+- 错误降级机制：Embedding/Chroma 不可用时不影响正常聊天
+
+### 修改
+- `server/src/modules/vector-memory/` — 新增模块（6 个文件）
+- `server/src/modules/chat/chat.controller.ts` — 注入 VectorMemoryService，记忆提取后自动向量化
+- `server/src/modules/chat/chat.module.ts` — 导入 VectorMemoryModule
+- `server/src/modules/chat/prompt-context.service.ts` — 注入 VectorMemoryService，语义搜索记忆
+- `server/src/modules/memory/memory.service.ts` — `saveMemoryEntries` 返回已保存实体
+- `server/src/app.module.ts` — 注册 VectorMemoryModule
+
+### 环境变量
+- 新增 `EMBEDDING_MODEL` / `VECTOR_COLLECTION` / `VECTOR_TOP_K`
+
 ---
 
 ## 后续版本规划

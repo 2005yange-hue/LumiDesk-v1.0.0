@@ -3,6 +3,7 @@ import { Response } from 'express'
 import { ChatService } from './chat.service'
 import { MemoryService } from '../memory/memory.service'
 import { MemoryExtractorService } from '../memory/memory-extractor.service'
+import { VectorMemoryService } from '../vector-memory/vector-memory.service'
 import { RuntimeModelConfig } from '../llm/llm-types'
 import { HistoryMessageDto } from './dto/message-response.dto'
 import { formatLLMError } from '../../common/error-formatter'
@@ -14,7 +15,8 @@ export class ChatController {
   constructor(
     private readonly chatService: ChatService,
     private readonly memoryService: MemoryService,
-    private readonly memoryExtractor: MemoryExtractorService
+    private readonly memoryExtractor: MemoryExtractorService,
+    private readonly vectorMemory: VectorMemoryService
   ) {}
 
   /**
@@ -73,15 +75,32 @@ export class ChatController {
   }
 
   /**
-   * 从用户消息中提取并保存长期记忆
+   * 从用户消息中提取、保存并向量化长期记忆
    * 完全异步，不影响聊天响应
+   *
+   * 流程：LLM 提取 → MySQL 存储 → Embedding → Chroma 向量索引
    */
   private extractAndSaveMemory(userMessage: string): void {
     this.memoryExtractor
       .extractMemories(userMessage)
       .then((entries) => {
-        if (entries.length > 0) {
-          return this.memoryService.saveMemoryEntries(entries)
+        if (entries.length === 0) return
+        return this.memoryService.saveMemoryEntries(entries)
+      })
+      .then((saved) => {
+        if (!saved || saved.length === 0) return
+        // 异步向量化（fire-and-forget，失败不阻塞）
+        for (const entry of saved) {
+          this.vectorMemory.indexMemory(
+            String(entry.id),
+            entry.user_id,
+            entry.content,
+            {
+              type: entry.type,
+              importance: entry.importance,
+              createdAt: entry.created_at
+            }
+          )
         }
       })
       .catch((err) => {

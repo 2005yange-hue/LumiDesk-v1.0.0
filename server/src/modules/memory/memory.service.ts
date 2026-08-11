@@ -81,12 +81,13 @@ export class MemoryService {
 
   /**
    * 批量保存长期记忆条目
+   * 返回已保存的实体（含自动生成 ID），供向量化步骤使用
    * 保存失败不抛出异常
    */
   async saveMemoryEntries(
     entries: Array<{ type: string; content: string; importance: number }>,
     userId = 'default'
-  ): Promise<void> {
+  ): Promise<MemoryEntry[]> {
     try {
       const records = entries.map((e) =>
         this.memoryRepo.create({
@@ -96,10 +97,12 @@ export class MemoryService {
           importance: e.importance
         })
       )
-      await this.memoryRepo.save(records)
-      this.logger.debug(`Saved ${records.length} memory entries`)
+      const saved = await this.memoryRepo.save(records)
+      this.logger.debug(`Saved ${saved.length} memory entries`)
+      return saved
     } catch (error) {
       this.logger.warn('Failed to save memory entries (non-blocking):', error)
+      return []
     }
   }
 

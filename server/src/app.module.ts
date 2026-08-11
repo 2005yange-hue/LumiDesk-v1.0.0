@@ -7,6 +7,7 @@ import { LLMModule } from './modules/llm/llm.module'
 import { ChatModule } from './modules/chat/chat.module'
 import { CharacterModule } from './modules/character/character.module'
 import { MemoryModule } from './modules/memory/memory.module'
+import { VectorMemoryModule } from './modules/vector-memory/vector-memory.module'
 
 @Module({
   imports: [
@@ -32,7 +33,8 @@ import { MemoryModule } from './modules/memory/memory.module'
     LLMModule,
     ChatModule,
     CharacterModule,
-    MemoryModule
+    MemoryModule,
+    VectorMemoryModule
   ],
   controllers: [AppController],
   providers: [AppService]
