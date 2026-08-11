@@ -24,6 +24,8 @@ export class MemoryExtractorService {
    * 提取失败返回空数组，不影响聊天流程
    */
   async extractMemories(userMessage: string): Promise<MemoryEntryData[]> {
+    this.logger.log(`[MemoryExtractor] Start extracting from: "${userMessage.substring(0, 80)}"`)
+
     try {
       const response = await this.llmService.chat([
         {
@@ -36,13 +38,33 @@ export class MemoryExtractorService {
         }
       ])
 
-      const jsonMatch = response.content.match(/\[[\s\S]*\]/)
-      if (!jsonMatch) {
-        this.logger.log('No extractable memories found in LLM response')
+      this.logger.log(`[MemoryExtractor] LLM response received (${response.content.length} chars)`)
+
+      // 尝试多种方式提取 JSON 数组：
+      // 1. 直接匹配 [...]
+      // 2. 剥离 markdown 代码块后匹配
+      let jsonStr: string | null = null
+
+      const directMatch = response.content.match(/\[[\s\S]*\]/)
+      if (directMatch) {
+        jsonStr = directMatch[0]
+      } else {
+        // 尝试处理 markdown 代码块：```json [...] ``` 或 ``` [...] ```
+        const codeBlockMatch = response.content.match(/```(?:json)?\s*([\s\S]*?)```/)
+        if (codeBlockMatch) {
+          const innerMatch = codeBlockMatch[1].match(/\[[\s\S]*\]/)
+          if (innerMatch) {
+            jsonStr = innerMatch[0]
+          }
+        }
+      }
+
+      if (!jsonStr) {
+        this.logger.log(`[MemoryExtractor] No JSON array found in response. Raw: "${response.content.substring(0, 200)}"`)
         return []
       }
 
-      const entries: MemoryEntryData[] = JSON.parse(jsonMatch[0])
+      const entries: MemoryEntryData[] = JSON.parse(jsonStr)
 
       // 校验数据格式
       const valid = entries.filter(
@@ -55,12 +77,14 @@ export class MemoryExtractorService {
       )
 
       if (valid.length > 0) {
-        this.logger.log(`Extracted ${valid.length} memories: ${valid.map((m) => m.type).join(', ')}`)
+        this.logger.log(`[MemoryExtractor] Extracted ${valid.length} memories: ${valid.map((m) => `[${m.type}] ${m.content}`).join(', ')}`)
+      } else {
+        this.logger.log(`[MemoryExtractor] ${entries.length} entries parsed but 0 passed validation`)
       }
 
       return valid
     } catch (error) {
-      this.logger.warn('Memory extraction failed (non-blocking):', error)
+      this.logger.warn('[MemoryExtractor] Extraction failed (non-blocking):', error)
       return []
     }
   }
