@@ -1,18 +1,7 @@
-/** 角色数据 */
-export interface CharacterData {
-  id: string
-  name: string
-  age: number
-  gender: string
-  background: string
-  personality: string
-  speakingStyle: string
-  likes: string[]
-  dislikes: string[]
-  relationshipLevel: number
-  createdAt: string
-  updatedAt: string
-}
+import type { Character } from '@shared/types/character'
+
+/** 角色数据（重导出共享规范） */
+export type CharacterData = Character
 
 /** 创建角色请求 */
 export interface CreateCharacterRequest {
