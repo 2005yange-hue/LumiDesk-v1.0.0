@@ -1,5 +1,3 @@
-import { Stream } from 'openai/streaming'
-
 /** LLM 请求参数 */
 export interface LLMRequest {
   messages: LLMMessage[]
