@@ -2,8 +2,6 @@ import { Controller, Post, Body, Res, HttpCode, Logger } from '@nestjs/common'
 import { Response } from 'express'
 import { ChatService } from './chat.service'
 import { MemoryService } from '../memory/memory.service'
-import { MemoryExtractorService } from '../memory/memory-extractor.service'
-import { VectorMemoryService } from '../vector-memory/vector-memory.service'
 import { RuntimeModelConfig } from '../llm/llm-types'
 import { HistoryMessageDto } from './dto/message-response.dto'
 import { formatLLMError } from '../../common/error-formatter'
@@ -14,15 +12,13 @@ export class ChatController {
 
   constructor(
     private readonly chatService: ChatService,
-    private readonly memoryService: MemoryService,
-    private readonly memoryExtractor: MemoryExtractorService,
-    private readonly vectorMemory: VectorMemoryService
+    private readonly memoryService: MemoryService
   ) {}
 
   /**
    * 发送消息 - SSE 流式响应
    * 支持传入历史记录 + 运行时模型配置 + 角色选择
-   * 异步提取长期记忆（不阻塞SSE）
+   * 长期记忆提取由 ChatService.sendMessageStream 内部 fire-and-forget 处理
    */
   @Post('send')
   @HttpCode(200)
@@ -60,11 +56,8 @@ export class ChatController {
       res.write(`data: ${JSON.stringify({ content: '', fullContent, done: true, id: Date.now().toString() })}\n\n`)
       res.end()
 
-      // 异步持久化（不阻塞 SSE 响应，失败自动记录日志）
+      // 异步持久化聊天记录（不阻塞 SSE 响应）
       this.memoryService.saveMessages(body.content, fullContent, body.characterId)
-
-      // 异步提取长期记忆（fire-and-forget，不阻塞响应）
-      this.extractAndSaveMemory(body.content)
     } catch (error) {
       this.logger.error('Chat error:', error)
       // 错误也不终止 SSE，确保前端能收到错误信息
@@ -72,46 +65,5 @@ export class ChatController {
       res.write(`data: ${JSON.stringify({ error: errorMsg, done: true })}\n\n`)
       res.end()
     }
-  }
-
-  /**
-   * 从用户消息中提取、保存并向量化长期记忆
-   * 完全异步，不影响聊天响应
-   *
-   * 流程：LLM 提取 → MySQL 存储 → Embedding → Chroma 向量索引
-   */
-  private extractAndSaveMemory(userMessage: string): void {
-    this.logger.log(`Memory extraction pipeline started for: "${userMessage.substring(0, 80)}"`)
-
-    this.memoryExtractor
-      .extractMemories(userMessage)
-      .then((entries) => {
-        if (entries.length === 0) {
-          this.logger.log('No memories extracted, skipping save')
-          return
-        }
-        this.logger.log(`Memories extracted, saving ${entries.length} entries to MySQL...`)
-        return this.memoryService.saveMemoryEntries(entries)
-      })
-      .then((saved) => {
-        if (!saved || saved.length === 0) return
-        this.logger.log(`Saved ${saved.length} memory entries to MySQL, starting vector indexing...`)
-        // 异步向量化（fire-and-forget，失败不阻塞）
-        for (const entry of saved) {
-          this.vectorMemory.indexMemory(
-            String(entry.id),
-            entry.user_id,
-            entry.content,
-            {
-              type: entry.type,
-              importance: entry.importance,
-              createdAt: entry.created_at
-            }
-          )
-        }
-      })
-      .catch((err) => {
-        this.logger.warn('Memory extraction pipeline failed (non-blocking):', err)
-      })
   }
 }
