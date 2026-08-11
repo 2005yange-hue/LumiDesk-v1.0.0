@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { LLMService } from '../llm/llm.service'
+import { RuntimeModelConfig } from '../llm/llm-types'
 
 export interface MemoryEntryData {
   type: string
@@ -21,9 +22,10 @@ export class MemoryExtractorService {
 
   /**
    * 从用户消息中提取结构化记忆
+   * 支持传入运行时模型配置，与聊天使用同一 LLM Provider
    * 提取失败返回空数组，不影响聊天流程
    */
-  async extractMemories(userMessage: string): Promise<MemoryEntryData[]> {
+  async extractMemories(userMessage: string, runtimeConfig?: Partial<RuntimeModelConfig>): Promise<MemoryEntryData[]> {
     this.logger.log(`[MemoryExtractor] Start extracting from: "${userMessage.substring(0, 80)}"`)
 
     try {
@@ -36,7 +38,7 @@ export class MemoryExtractorService {
           role: 'user',
           content: `请分析以下用户消息，提取值得长期记忆的信息：\n\n"${userMessage}"\n\n请以 JSON 数组格式返回，如果没有值得记忆的信息，返回空数组 []。`
         }
-      ])
+      ], runtimeConfig)
 
       this.logger.log(`[MemoryExtractor] LLM response received (${response.content.length} chars)`)
 

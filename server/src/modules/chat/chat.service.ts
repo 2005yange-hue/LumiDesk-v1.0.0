@@ -37,8 +37,8 @@ export class ChatService {
   ): Promise<AsyncIterable<LLMStreamChunk>> {
     this.logger.log(`Received message: ${dto.content.substring(0, 50)}...`)
 
-    // fire-and-forget：异步提取长期记忆，不阻塞 SSE 流式响应
-    this.extractMemoriesFromMessage(dto.content)
+    // fire-and-forget：异步提取长期记忆，与聊天使用同一模型配置
+    this.extractMemoriesFromMessage(dto.content, modelConfig)
 
     let messages = await this.promptContext.buildMessages(dto.content, history, characterId)
 
@@ -58,11 +58,11 @@ export class ChatService {
    * 完全异步，不阻塞 SSE 流式响应
    * 失败不影响聊天
    */
-  private extractMemoriesFromMessage(userMessage: string): void {
+  private extractMemoriesFromMessage(userMessage: string, modelConfig?: Partial<RuntimeModelConfig>): void {
     this.logger.log(`[Memory] Extraction started for: "${userMessage.substring(0, 80)}"`)
 
     this.memoryExtractor
-      .extractMemories(userMessage)
+      .extractMemories(userMessage, modelConfig)
       .then((entries) => {
         if (entries.length === 0) {
           this.logger.log('[Memory] No extractable memories found')
