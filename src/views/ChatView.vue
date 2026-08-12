@@ -145,7 +145,6 @@ const activeModelName = computed(() => {
 })
 
 onMounted(async () => {
-  console.log('[ChatView] mounted')
   // 优先初始化会话列表（main.ts 已触发 conversationStore.init()，此处等待其完成）
   await conversationStore.init()
   if (conversationStore.currentConversationId) {

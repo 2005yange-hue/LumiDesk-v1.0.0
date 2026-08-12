@@ -71,7 +71,6 @@ export const useConversationStore = defineStore('conversation', () => {
       }
       if (data === null) throw lastError
 
-      console.log('[Conversation] fetchList result', data)
       conversationList.value = data
       reconcileSelection()
     } catch (err) {
@@ -86,10 +85,6 @@ export const useConversationStore = defineStore('conversation', () => {
   let initPromise: Promise<void> | null = null
   async function init(): Promise<void> {
     if (!initPromise) {
-      console.log('[Conversation] init', {
-        currentId: currentConversationId.value,
-        conversations: conversationList.value
-      })
       initPromise = fetchList()
     }
     return initPromise
@@ -97,7 +92,6 @@ export const useConversationStore = defineStore('conversation', () => {
 
   // ──── 创建会话 ────
   async function create(title?: string): Promise<ConversationInfo | null> {
-    console.log('[Conversation] create')
     try {
       const conv = await createConversation(title ? { title } : {})
       await fetchList()
