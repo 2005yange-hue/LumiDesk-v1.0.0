@@ -1,211 +1,274 @@
 # 数据库设计文档
 
-> 当前状态：数据库尚未启用，以下为规划中的表结构设计。
-
 ---
 
 ## 一、数据库选型
 
 | 数据库 | 用途 | 状态 |
 |--------|------|------|
-| MySQL | 关系型数据存储（用户/角色/消息/情绪） | 📋 规划中 |
-| Chroma / Milvus | 向量数据库（长期记忆语义检索） | 📋 规划中 |
+| MySQL | 关系型数据存储（用户/角色/对话/记忆/Provider） | ✅ 已启用 |
+| ChromaDB | 向量数据库（长期记忆语义检索） | ✅ 已启用 |
 | Redis | 短期缓存（会话上下文/消息队列） | 📋 规划中 |
 
 ---
 
-## 二、数据表设计
+## 二、数据库设计原则
 
-### 2.1 User 用户表
-
-**表名：** `users`
-
-| 字段 | 类型 | 约束 | 说明 |
-|------|------|------|------|
-| `id` | VARCHAR(36) | PK | UUID 主键 |
-| `username` | VARCHAR(50) | NOT NULL, UNIQUE | 用户名 |
-| `avatar` | VARCHAR(255) | NULL | 头像 URL |
-| `created_at` | TIMESTAMP | NOT NULL, DEFAULT NOW() | 创建时间 |
-| `updated_at` | TIMESTAMP | NOT NULL, DEFAULT NOW() | 更新时间 |
-
-**索引：**
-- `idx_users_username` ON `username`
+- **核心数据 MySQL** — 结构化数据（对话、消息、记忆、Provider、角色）
+- **向量数据 ChromaDB** — 文本 Embedding 向量存储与语义搜索
+- **文件资源独立存储** — Prompt 模板、Live2D 模型等
+- **双写策略** — MemoryEntry 同时写入 MySQL（结构化）和 Chroma（向量），MySQL 为回退数据源
 
 ---
 
-### 2.2 Character 角色表
+## 三、已启用数据表
 
-**表名：** `characters`
+### 3.1 conversations 对话会话表
+
+**表名：** `conversations`
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
 | `id` | VARCHAR(36) | PK | UUID 主键 |
-| `user_id` | VARCHAR(36) | FK → users.id | 所属用户 |
-| `name` | VARCHAR(50) | NOT NULL | 角色名称 |
-| `age` | INT | NULL | 年龄 |
-| `gender` | VARCHAR(10) | NULL | 性别 |
-| `background` | TEXT | NULL | 角色背景故事 |
-| `personality` | TEXT | NULL | 性格描述 |
-| `speaking_style` | TEXT | NULL | 语言风格 |
-| `likes` | JSON | NULL | 喜好列表 |
-| `dislikes` | JSON | NULL | 厌恶列表 |
-| `relationship_level` | INT | DEFAULT 0 | 亲密度等级 |
+| `user_id` | VARCHAR(36) | NOT NULL | 所属用户 |
+| `character_id` | VARCHAR(36) | NULL | 关联角色 |
+| `title` | VARCHAR(255) | NULL | 对话标题 |
 | `created_at` | TIMESTAMP | NOT NULL | 创建时间 |
 | `updated_at` | TIMESTAMP | NOT NULL | 更新时间 |
 
-**索引：**
-- `idx_characters_user_id` ON `user_id`
-
 ---
 
-### 2.3 Message 聊天记录表
+### 3.2 messages 消息表
 
 **表名：** `messages`
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
 | `id` | VARCHAR(36) | PK | UUID 主键 |
-| `user_id` | VARCHAR(36) | FK → users.id | 所属用户 |
-| `character_id` | VARCHAR(36) | FK → characters.id | 关联角色 |
-| `role` | ENUM('user','assistant') | NOT NULL | 消息角色 |
+| `conversation_id` | VARCHAR(36) | FK → conversations.id | 所属对话 |
+| `role` | VARCHAR(20) | NOT NULL | 消息角色（user/assistant/system） |
 | `content` | TEXT | NOT NULL | 消息内容 |
-| `model` | VARCHAR(50) | NULL | 使用的模型名称 |
-| `prompt_tokens` | INT | NULL | Prompt Token 消耗 |
-| `completion_tokens` | INT | NULL | 回复 Token 消耗 |
-| `created_at` | TIMESTAMP | NOT NULL, DEFAULT NOW() | 发送时间 |
-
-**索引：**
-- `idx_messages_user_id` ON `user_id`
-- `idx_messages_created_at` ON `created_at`
-- `idx_messages_user_created` ON (`user_id`, `created_at`)
+| `token_count` | INT | NULL | Token 消耗 |
+| `created_at` | TIMESTAMP | NOT NULL | 发送时间 |
 
 ---
 
-### 2.4 Memory 长期记忆表
+### 3.3 memory_entries 长期记忆表
 
-**表名：** `memories`
+**表名：** `memory_entries`
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
 | `id` | VARCHAR(36) | PK | UUID 主键 |
-| `user_id` | VARCHAR(36) | FK → users.id | 所属用户 |
-| `type` | ENUM('interest','habit','goal','event','preference') | NOT NULL | 记忆类型 |
+| `user_id` | VARCHAR(36) | NOT NULL | 所属用户 |
+| `vector_id` | VARCHAR(255) | NULL | Chroma 中的向量 ID |
+| `type` | VARCHAR(50) | NOT NULL | 记忆类型（fact/preference/habit/interest） |
 | `content` | TEXT | NOT NULL | 记忆内容 |
-| `importance` | ENUM('high','medium','low') | NOT NULL, DEFAULT 'medium' | 重要程度 |
-| `source_message_id` | VARCHAR(36) | FK → messages.id | 来源消息 |
-| `access_count` | INT | DEFAULT 0 | 被检索次数 |
-| `last_accessed_at` | TIMESTAMP | NULL | 最后检索时间 |
-| `created_at` | TIMESTAMP | NOT NULL, DEFAULT NOW() | 创建时间 |
+| `importance` | FLOAT | NOT NULL, DEFAULT 0.5 | 重要程度（0-1） |
+| `created_at` | TIMESTAMP | NOT NULL | 创建时间 |
+| `updated_at` | TIMESTAMP | NOT NULL | 更新时间 |
 
 **索引：**
-- `idx_memories_user_id` ON `user_id`
-- `idx_memories_type` ON `type`
-- `idx_memories_importance` ON `importance`
+- `idx_memory_user_id` ON `user_id`
+- `idx_memory_importance` ON `importance DESC`
+- `idx_memory_created` ON `created_at DESC`
 
 ---
 
-### 2.5 EmotionLog 情绪日志表
+### 3.4 model_providers API 配置表
 
-**表名：** `emotion_logs`
+**表名：** `model_providers`
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| `id` | INT | PK, AUTO_INCREMENT | 主键 |
+| `user_id` | VARCHAR(36) | NOT NULL | 所属用户 |
+| `name` | VARCHAR(100) | NOT NULL | 配置名称（如"我的 DeepSeek"） |
+| `provider` | VARCHAR(50) | NOT NULL | 服务商标识 |
+| `provider_type` | VARCHAR(50) | NOT NULL | 类型（openai/deepseek/gemini/claude/openrouter） |
+| `base_url` | VARCHAR(500) | NOT NULL | API 地址 |
+| `api_key` | VARCHAR(500) | NOT NULL | API 密钥 |
+| `model` | VARCHAR(100) | NOT NULL | 模型名称 |
+| `enabled` | BOOLEAN | DEFAULT TRUE | 是否启用 |
+| `is_default` | BOOLEAN | DEFAULT FALSE | 是否默认 Provider |
+| `temperature` | FLOAT | DEFAULT 0.7 | 温度参数 |
+| `max_tokens` | INT | DEFAULT 4096 | 最大 Token 数 |
+| `top_p` | FLOAT | DEFAULT 1.0 | Top-P 采样 |
+| `stream` | BOOLEAN | DEFAULT TRUE | 是否流式输出 |
+| `timeout` | INT | DEFAULT 30000 | 请求超时（ms） |
+| `custom_headers` | TEXT | NULL | 自定义请求头（JSON） |
+| `custom_body` | TEXT | NULL | 自定义请求体（JSON） |
+| `created_at` | TIMESTAMP | NOT NULL | 创建时间 |
+| `updated_at` | TIMESTAMP | NOT NULL | 更新时间 |
+
+**索引：**
+- `idx_provider_user_id` ON `user_id`
+- `idx_provider_enabled` ON (`user_id`, `enabled`)
+- `idx_provider_default` ON (`user_id`, `is_default`)
+
+---
+
+### 3.5 provider_models 模型列表表
+
+**表名：** `provider_models`
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| `id` | INT | PK, AUTO_INCREMENT | 主键 |
+| `provider_id` | INT | FK → model_providers.id | 关联 Provider |
+| `model_name` | VARCHAR(100) | NOT NULL | 模型名称 |
+| `enabled` | BOOLEAN | DEFAULT TRUE | 是否启用 |
+| `created_at` | TIMESTAMP | NOT NULL | 创建时间 |
+
+---
+
+### 3.6 characters 角色表
+
+**表名：** `characters`
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
 | `id` | VARCHAR(36) | PK | UUID 主键 |
-| `user_id` | VARCHAR(36) | FK → users.id | 所属用户 |
-| `character_id` | VARCHAR(36) | FK → characters.id | 关联角色 |
-| `happy` | FLOAT | NOT NULL, DEFAULT 0.5 | 开心度 (-1 到 1) |
-| `trust` | FLOAT | NOT NULL, DEFAULT 0.5 | 信任度 (0 到 1) |
-| `affection` | FLOAT | NOT NULL, DEFAULT 0.5 | 亲密度 (0 到 1) |
-| `energy` | FLOAT | NOT NULL, DEFAULT 1.0 | 精力值 (0 到 1) |
-| `trigger_event` | VARCHAR(100) | NULL | 触发事件描述 |
-| `created_at` | TIMESTAMP | NOT NULL, DEFAULT NOW() | 记录时间 |
-
-**索引：**
-- `idx_emotion_user_id` ON `user_id`
-- `idx_emotion_created_at` ON `created_at`
+| `name` | VARCHAR(50) | NOT NULL | 角色名称 |
+| `age` | INT | NULL | 年龄 |
+| `gender` | VARCHAR(10) | NULL | 性别 |
+| `background` | TEXT | NULL | 角色背景故事 |
+| `personality` | TEXT | NULL | 性格描述 |
+| `speaking_style` | TEXT | NULL | 语言风格 |
+| `prompt_template` | TEXT | NULL | 自定义 Prompt 模板 |
+| `created_at` | TIMESTAMP | NOT NULL | 创建时间 |
+| `updated_at` | TIMESTAMP | NOT NULL | 更新时间 |
 
 ---
 
-## 三、ER 关系图
+## 四、ER 关系图（当前）
 
 ```
-┌──────────┐        ┌──────────────┐        ┌──────────────┐
-│  users   │        │  characters  │        │  messages    │
-├──────────┤        ├──────────────┤        ├──────────────┤
-│ id (PK)  │◄───────│ user_id (FK) │        │ id (PK)      │
-│ username │        │ id (PK)      │◄───────│ character_id  │
-│ avatar   │        │ name         │        │ user_id (FK) │
-│ created  │        │ personality  │        │ role         │
-│ updated  │        │ background   │        │ content      │
-└──────────┘        └──────────────┘        │ model        │
-        │                                    │ tokens       │
-        │                                    │ created_at   │
-        │                                    └──────┬───────┘
-        │                                           │
-        │              ┌──────────────┐             │
-        │              │  memories    │             │
-        │              ├──────────────┤             │
-        │              │ id (PK)      │             │
-        ├──────────────│ user_id (FK) │             │
-        │              │ type         │◄────────────│ source_message_id (FK)
-        │              │ content      │             │
-        │              │ importance   │             │
-        │              │ access_count │             │
-        │              └──────────────┘             │
-        │                                           │
-        │              ┌──────────────┐             │
-        │              │ emotion_logs │             │
-        │              ├──────────────┤             │
-        ├──────────────│ user_id (FK) │             │
-        │              │ id (PK)      │             │
-        └──────────────│ character_id │             │
-                       │ happy        │             │
-                       │ trust        │             │
-                       │ affection    │             │
-                       │ energy       │             │
-                       │ trigger_event│             │
-                       │ created_at   │             │
-                       └──────────────┘             │
-                                                    │
-        ┌───────────────────────────────────────────┘
+┌──────────────────┐       ┌──────────────────┐
+│  conversations   │       │   characters      │
+├──────────────────┤       ├──────────────────┤
+│ id (PK)          │       │ id (PK)           │
+│ user_id          │       │ name              │
+│ character_id ────┼───────│ personality       │
+│ title            │       │ background        │
+│ created_at       │       │ speaking_style    │
+│ updated_at       │       └──────────────────┘
+└────────┬─────────┘
+         │
+         │ 1:N
+         │
+┌────────▼─────────┐       ┌──────────────────┐
+│   messages        │       │ memory_entries    │
+├──────────────────┤       ├──────────────────┤
+│ id (PK)           │       │ id (PK)           │
+│ conversation_id ──┤       │ user_id           │
+│ role              │       │ vector_id         │
+│ content           │       │ type              │
+│ token_count       │       │ content           │
+│ created_at        │       │ importance        │
+└──────────────────┘       └──────────────────┘
+
+┌──────────────────┐       ┌──────────────────┐
+│ model_providers  │       │ provider_models   │
+├──────────────────┤       ├──────────────────┤
+│ id (PK)          │◄──────│ provider_id (FK)  │
+│ user_id          │       │ model_name        │
+│ name             │       │ enabled           │
+│ provider         │       └──────────────────┘
+│ provider_type    │
+│ base_url         │
+│ api_key          │
+│ model            │
+│ enabled          │
+│ is_default       │
+│ temperature      │
+│ max_tokens       │
+│ top_p            │
+│ stream           │
+│ timeout          │
+│ custom_headers   │
+│ custom_body      │
+└──────────────────┘
 ```
 
 ---
 
-## 四、向量数据库设计（规划）
+## 五、ChromaDB 向量存储
 
-**数据库：** Chroma（轻量级嵌入式向量库）
+**数据库：** ChromaDB v2 API
 
-**Collection：** `user_memories`
+**Tenant / Database：** `default_tenant` / `default_database`
+
+**Collection：** `memory_entries`
 
 **文档结构：**
 ```json
 {
-  "id": "memory-{uuid}",
-  "embedding": [0.123, -0.456, ...],  // 1536 维向量
+  "id": "{uuid}",
+  "embedding": [0.123, -0.456, ...],
   "metadata": {
-    "user_id": "uuid",
-    "type": "interest",
-    "content": "Unity 游戏开发",
-    "importance": "high",
-    "created_at": "2026-08-01T10:00:00Z"
-  }
+    "userId": "default",
+    "type": "fact",
+    "memoryId": "mysql-uuid"
+  },
+  "document": "用户的记忆内容文本"
 }
 ```
 
 **检索流程：**
 ```
-用户消息 → Embedding API → 向量查询 → Top-K 相似记忆 → 注入 LLM Context
+用户消息 → Embedding API 向量化 → Chroma query (Top-K) → 返回相似记忆 → 注入 LLM Context
 ```
+
+**安全降级：**
+- `EMBEDDING_API_KEY` 未配置 → EmbeddingService 返回 null → VectorMemoryService 跳过 → 不影响聊天
+- `CHROMA_URL` 不可达 → 记忆回退 MySQL 查询
 
 ---
 
-## 五、当前阶段数据管理方式
+## 六、未来表规划
 
-由于数据库尚未启用，当前数据管理方式：
+### 6.1 emotion_logs 情绪日志表（规划）
 
-| 数据 | 存储方式 | 说明 |
-|------|----------|------|
-| 聊天消息 | 前端内存（Pinia Store） | 刷新即丢失 |
-| 模型配置 | localStorage | 持久化于浏览器 |
-| Prompt 模板 | 文件系统 (`server/prompts/`) | 启动时加载 |
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | VARCHAR(36) PK | UUID |
+| `user_id` | VARCHAR(36) FK | 所属用户 |
+| `character_id` | VARCHAR(36) FK | 关联角色 |
+| `happy` | FLOAT | 开心度（-1 到 1） |
+| `trust` | FLOAT | 信任度（0 到 1） |
+| `affection` | FLOAT | 亲密度（0 到 1） |
+| `energy` | FLOAT | 精力值（0 到 1） |
+| `trigger_event` | VARCHAR(100) | 触发事件 |
+| `created_at` | TIMESTAMP | 记录时间 |
+
+### 6.2 agent_tasks Agent 任务表（规划）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | VARCHAR(36) PK | UUID |
+| `user_id` | VARCHAR(36) FK | 所属用户 |
+| `type` | VARCHAR(50) | 任务类型（reminder/alert/suggestion） |
+| `status` | ENUM('pending','executed','dismissed') | 状态 |
+| `content` | TEXT | 任务内容 |
+| `trigger_at` | TIMESTAMP | 触发时间 |
+| `created_at` | TIMESTAMP | 创建时间 |
+
+### 6.3 user_preferences 用户偏好表（规划）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | VARCHAR(36) PK | UUID |
+| `user_id` | VARCHAR(36) FK | 所属用户 |
+| `key` | VARCHAR(100) | 配置键 |
+| `value` | TEXT | 配置值 |
+| `updated_at` | TIMESTAMP | 更新时间 |
+
+### 6.4 users 用户表（规划）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | VARCHAR(36) PK | UUID |
+| `username` | VARCHAR(50) UNIQUE | 用户名 |
+| `avatar` | VARCHAR(255) | 头像 URL |
+| `created_at` | TIMESTAMP | 创建时间 |

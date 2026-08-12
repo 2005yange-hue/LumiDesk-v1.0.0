@@ -4,80 +4,38 @@
 
 ---
 
-## 接口总览
+## API 分类
 
-| 方法 | 路径 | 功能 | 状态 |
-|------|------|------|------|
-| GET | `/health` | 健康检查 | ✅ 已实现 |
-| POST | `/chat/send` | 发送聊天消息（SSE 流式） | ✅ 已实现 |
-| POST | `/character` | 创建/更新角色 | 📋 规划中 |
-| GET | `/character` | 获取角色配置 | 📋 规划中 |
-| GET | `/memory/search` | 搜索长期记忆 | 📋 规划中 |
-| POST | `/vision/analyze` | 分析屏幕截图 | 📋 规划中 |
-| POST | `/agent/decide` | Agent 行为决策 | 📋 规划中 |
-| GET | `/emotion/state` | 获取情绪状态 | 📋 规划中 |
-
----
-
-## 一、健康检查
-
-### GET /api/health
-
-**功能：** 检查服务是否正常运行。
-
-**请求示例：**
-```
-GET /api/health
-```
-
-**响应示例：**
-```json
-{
-  "status": "ok",
-  "timestamp": "2026-08-11T12:00:00.000Z",
-  "version": "0.1.0"
-}
-```
-
-**错误情况：**
-| 场景 | HTTP 状态码 | 说明 |
-|------|------------|------|
-| 服务未启动 | - | 连接拒绝 |
+| 分类 | 路径前缀 | 状态 |
+|------|----------|------|
+| Chat API | `/chat` | ✅ 已实现 |
+| Provider API | `/provider` | ✅ 已实现 |
+| Character API | `/character` | ✅ 已实现 |
+| Health API | `/health` | ✅ 已实现 |
+| Memory API | — | 📋 规划中（当前通过 Provider API 间接使用） |
+| Vision API | — | 📋 规划中 |
+| Audio API | — | 📋 规划中 |
+| Agent API | — | 📋 规划中 |
 
 ---
 
-## 二、聊天接口
+## 一、Chat API
 
 ### POST /api/chat/send
 
-**功能：** 发送聊天消息，通过 SSE（Server-Sent Events）流式返回 AI 回复。
-
-**请求头：**
-```
-Content-Type: application/json
-```
+**功能：** 发送聊天消息，通过 SSE 流式返回 AI 回复。
 
 **请求体：**
 ```json
 {
   "content": "最近学习压力很大。",
   "history": [
-    {
-      "role": "user",
-      "content": "你好"
-    },
-    {
-      "role": "assistant",
-      "content": "你好！今天过得怎么样？"
-    }
+    { "role": "user", "content": "你好" },
+    { "role": "assistant", "content": "你好！今天过得怎么样？" }
   ],
-  "modelConfig": {
-    "apiKey": "sk-...",
-    "apiBaseUrl": "https://api.openai.com/v1",
-    "model": "gpt-4o",
-    "temperature": 0.7,
-    "maxTokens": 1024
-  }
+  "providerId": 1,
+  "characterId": "default-elli",
+  "model": "deepseek-v4-flash"
 }
 ```
 
@@ -85,218 +43,325 @@ Content-Type: application/json
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `content` | string | ✅ | 用户消息内容，最大 5000 字符 |
-| `history` | array | ❌ | 历史消息数组，最多保留 20 条 |
-| `history[].role` | string | ✅ | `"user"` 或 `"assistant"` |
-| `history[].content` | string | ✅ | 消息内容 |
-| `modelConfig` | object | ❌ | 运行时模型配置（不传则使用 .env 默认值） |
-| `modelConfig.apiKey` | string | ❌ | API Key（不传则使用环境变量） |
-| `modelConfig.apiBaseUrl` | string | ❌ | API 地址（默认 `https://api.openai.com/v1`） |
-| `modelConfig.model` | string | ❌ | 模型名称（默认 `gpt-4o`） |
-| `modelConfig.temperature` | number | ❌ | 0-2，默认 0.7 |
-| `modelConfig.maxTokens` | number | ❌ | 128-8192，默认 1024 |
+| `content` | string | ✅ | 用户消息内容 |
+| `history` | HistoryMessageDto[] | ❌ | 历史消息数组 |
+| `providerId` | number | ❌ | 指定 Provider ID（不传则使用 default Provider） |
+| `characterId` | string | ❌ | 指定角色 ID（不传则使用默认角色艾莉） |
+| `model` | string | ❌ | 覆盖 Provider 的模型名称 |
 
 **SSE 响应格式：**
-
-每条数据以 `data: ` 开头，JSON 格式：
-
-```json
-{
-  "content": "学习",
-  "fullContent": "学习确实容易",
-  "done": false
-}
-```
-
-```json
-{
-  "content": "",
-  "fullContent": "学习确实容易让人感到疲惫，记得适当休息哦。",
-  "done": true,
-  "id": "1712345678901-abc123"
-}
-```
-
-**SSE 响应字段说明：**
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `content` | string | 当前增量 Token 内容 |
-| `fullContent` | string | 完整累积内容 |
-| `done` | boolean | 是否生成完毕 |
-| `id` | string | 生成完毕时返回消息 ID |
-| `error` | string | 错误信息（仅出错时返回） |
-
-**完整 SSE 流示例：**
 
 ```
 data: {"content":"学","fullContent":"学","done":false}
 data: {"content":"习","fullContent":"学习","done":false}
-data: {"content":"确","fullContent":"学习确","done":false}
 ...
-data: {"content":"","fullContent":"学习确实容易让人感到疲惫，记得适当休息哦。","done":true,"id":"1712345678901-abc123"}
+data: {"content":"","fullContent":"完整回复内容","done":true,"id":"msg-uuid"}
 ```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `content` | string | 当前增量 Token |
+| `fullContent` | string | 完整累积内容 |
+| `done` | boolean | 是否生成完毕 |
+| `id` | string | 消息 ID（done 时返回） |
+| `error` | string | 错误信息（仅出错时） |
 
 **错误情况：**
 
-| 场景 | SSE 返回的 error 字段 |
-|------|----------------------|
-| API Key 无效 | `"API Key 无效，请检查您的 LLM_API_KEY 配置"` |
-| API 配额不足 | `"API 配额不足，请检查您的账户余额"` |
-| 网络连接失败 | `"无法连接到模型服务，请检查网络或 BASE_URL 配置"` |
-| 上下文过长 | `"对话内容过长，请简化您的问题或清空历史记录"` |
-| API Key 未配置 | `"LLM_API_KEY not configured. 请在设置中配置 API Key"` |
+| 场景 | error 字段 |
+|------|-----------|
+| 无可用 Provider | `"LLM_API_KEY not configured..."` |
+| API Key 无效 | `"API Key 无效..."` |
+| API 配额不足 | `"API 配额不足..."` |
+| 网络连接失败 | `"无法连接到模型服务..."` |
 
 ---
 
-## 三、角色接口（规划中）
+## 二、Provider API
 
-### POST /api/character
+### GET /api/provider
 
-**功能：** 创建或更新 AI 角色配置。
+**功能：** 获取当前用户的所有 Provider 配置。
+
+**响应：**
+```json
+[
+  {
+    "id": 1,
+    "name": "我的 DeepSeek",
+    "provider": "deepseek",
+    "provider_type": "openai-compatible",
+    "base_url": "https://api.deepseek.com/v1",
+    "api_key": "sk-1****b4c",
+    "model": "deepseek-chat",
+    "enabled": true,
+    "is_default": true,
+    "temperature": 0.7,
+    "max_tokens": 4096,
+    "top_p": 1.0,
+    "stream": true,
+    "timeout": 30000,
+    "custom_headers": null,
+    "custom_body": null
+  }
+]
+```
+
+> 注意：`api_key` 返回时已脱敏（`****`），前端无法获取完整 Key。
+
+---
+
+### GET /api/provider/active
+
+**功能：** 获取当前启用的 Provider（`enabled=true`）。
+
+---
+
+### GET /api/provider/default
+
+**功能：** 获取标记为默认的 Provider（`is_default=true`）。
+
+---
+
+### POST /api/provider
+
+**功能：** 创建新的 Provider 配置。
 
 **请求体：**
 ```json
 {
-  "name": "艾莉",
-  "age": 20,
-  "gender": "female",
-  "background": "陪伴用户学习和生活的AI伙伴",
-  "personality": "温柔、理性、善解人意",
-  "speakingStyle": "简洁、自然",
-  "likes": ["阅读", "编程"],
-  "dislikes": ["嘈杂环境"]
+  "name": "我的 DeepSeek",
+  "provider": "deepseek",
+  "provider_type": "openai-compatible",
+  "base_url": "https://api.deepseek.com/v1",
+  "api_key": "sk-xxx",
+  "model": "deepseek-chat",
+  "is_default": true,
+  "temperature": 0.7,
+  "max_tokens": 4096,
+  "top_p": 1.0,
+  "stream": true,
+  "timeout": 30000
 }
 ```
+
+| 字段 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `name` | string | ✅ | — | 配置名称 |
+| `provider` | string | ✅ | — | 服务商标识 |
+| `provider_type` | string | ❌ | — | openai / deepseek / gemini / claude / openrouter |
+| `base_url` | string | ✅ | — | API 地址 |
+| `api_key` | string | ✅ | — | API 密钥 |
+| `model` | string | ✅ | — | 模型名称 |
+| `is_default` | boolean | ❌ | false | 是否默认 |
+| `temperature` | number | ❌ | 0.7 | 0-2 |
+| `max_tokens` | number | ❌ | 4096 | 1-131072 |
+| `top_p` | number | ❌ | 1.0 | 0-1 |
+| `stream` | boolean | ❌ | true | 是否流式 |
+| `timeout` | number | ❌ | 30000 | 请求超时（ms） |
+| `custom_headers` | string | ❌ | null | 自定义请求头（JSON） |
+| `custom_body` | string | ❌ | null | 自定义请求体（JSON） |
+
+---
+
+### PUT /api/provider/:id
+
+**功能：** 更新 Provider 配置。参数同 POST。
+
+> 注意：如果 `api_key` 为脱敏值（含 `****`），后端会自动跳过更新。
+
+---
+
+### DELETE /api/provider/:id
+
+**功能：** 删除 Provider 及其关联的模型记录。
+
+---
+
+### POST /api/provider/test
+
+**功能：** 测试 API 连接（不保存）。
+
+**请求体：**
+```json
+{
+  "base_url": "https://api.deepseek.com/v1",
+  "api_key": "sk-xxx",
+  "model": "deepseek-chat"
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "latency": 843,
+  "model": "deepseek-chat",
+  "tokens": 15,
+  "response": "你好！有什么可以帮你的？"
+}
+```
+
+失败时 `success=false`，`message` 包含分类错误（401 认证失败 / 403 权限不足 / 404 模型不存在 / 429 频率限制 / 网络错误）。
+
+---
+
+### POST /api/provider/models
+
+**功能：** 获取远程模型列表（不保存）。
+
+**请求体：** 同 test 接口。
+
+**响应：**
+```json
+[
+  { "id": "deepseek-chat", "owned_by": "deepseek" },
+  { "id": "deepseek-reasoner", "owned_by": "deepseek" }
+]
+```
+
+---
+
+### GET /api/provider/:id/models
+
+**功能：** 获取指定 Provider 的远程模型列表。
+
+---
+
+### POST /api/provider/:id/models
+
+**功能：** 添加模型到 Provider 的本地记录。
+
+**请求体：**
+```json
+{ "model_name": "deepseek-chat" }
+```
+
+---
+
+### DELETE /api/provider/model/:modelId
+
+**功能：** 删除 Provider 的本地模型记录。
+
+---
+
+### GET /api/provider/:id/saved-models
+
+**功能：** 获取 Provider 的已保存本地模型列表。
+
+---
+
+## 三、Character API
 
 ### GET /api/character
 
-**功能：** 获取当前角色配置。
+**功能：** 获取所有角色。
 
 **响应：**
 ```json
-{
-  "name": "艾莉",
-  "personality": "温柔、理性、善解人意",
-  "speakingStyle": "简洁、自然"
-}
+[
+  {
+    "id": "default-elli",
+    "name": "艾莉",
+    "age": 20,
+    "gender": "female",
+    "background": "陪伴用户学习和生活的AI伙伴",
+    "personality": "温柔、理性、善解人意",
+    "speaking_style": "简洁、自然"
+  }
+]
 ```
 
 ---
 
-## 四、记忆接口（规划中）
+### GET /api/character/:id
 
-### GET /api/memory/search
-
-**功能：** 搜索长期记忆。
-
-**请求参数：**
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `query` | string | ✅ | 搜索内容 |
-| `type` | string | ❌ | 记忆类型：`interest`/`habit`/`goal`/`event` |
-| `limit` | number | ❌ | 返回条数，默认 5 |
-
-**响应：**
-```json
-{
-  "memories": [
-    {
-      "id": "1",
-      "type": "interest",
-      "content": "Unity 游戏开发",
-      "importance": "high",
-      "createdAt": "2026-08-01T10:00:00Z"
-    }
-  ]
-}
-```
+**功能：** 获取指定角色详情。
 
 ---
 
-## 五、视觉感知接口（规划中）
+### POST /api/character
 
-### POST /api/vision/analyze
-
-**功能：** 分析屏幕截图，返回用户当前环境和活动描述。
-
-**请求体：** `multipart/form-data`
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `image` | file | ✅ | 屏幕截图（PNG/JPEG） |
-| `maxTokens` | number | ❌ | 分析 Token 上限 |
-
-**响应：**
-```json
-{
-  "activeApplication": "Visual Studio Code",
-  "applicationType": "IDE",
-  "generalActivity": "用户正在编写 C++ 代码",
-  "detailIndicators": ["代码中包含多个文件", "似乎在解决编译错误"],
-  "shouldInteract": true,
-  "interactReason": "用户可能遇到开发问题"
-}
-```
-
----
-
-## 六、Agent 接口（规划中）
-
-### POST /api/agent/decide
-
-**功能：** 根据当前状态决策是否主动发言。
+**功能：** 创建新角色。
 
 **请求体：**
 ```json
 {
-  "screenState": { "...": "视觉分析结果" },
-  "userBehavior": "编程已持续 45 分钟",
-  "timeOfDay": "22:30",
-  "lastInteractionMinutes": 10
-}
-```
-
-**响应：**
-```json
-{
-  "shouldSpeak": true,
-  "message": "已经学习很久了，要不要休息一下？",
-  "emotion": "caring",
-  "priority": "medium"
+  "name": "自定义角色",
+  "age": 25,
+  "gender": "male",
+  "background": "...",
+  "personality": "...",
+  "speaking_style": "..."
 }
 ```
 
 ---
 
-## 七、情绪接口（规划中）
+### PUT /api/character/:id
 
-### GET /api/emotion/state
+**功能：** 更新角色。参数同 POST。
 
-**功能：** 获取当前角色情绪状态。
+---
+
+### DELETE /api/character/:id
+
+**功能：** 删除角色。
+
+---
+
+## 四、Health API
+
+### GET /api/health
+
+**功能：** 健康检查。
 
 **响应：**
 ```json
 {
-  "happy": 0.7,
-  "trust": 0.6,
-  "affection": 0.5,
-  "energy": 0.4,
-  "currentEmotion": "happy"
+  "status": "ok",
+  "timestamp": "2026-08-12T12:00:00.000Z",
+  "version": "0.5.3"
 }
 ```
+
+---
+
+## 五、未来 API（规划中）
+
+### Memory API
+
+| 方法 | 路径 | 功能 |
+|------|------|------|
+| GET | `/memory/search` | 搜索长期记忆（当前通过 ChatService 内部调用） |
+| DELETE | `/memory/:id` | 删除指定记忆 |
+
+### Vision API
+
+| 方法 | 路径 | 功能 |
+|------|------|------|
+| POST | `/vision/analyze` | 分析屏幕截图（multipart/form-data） |
+
+### Agent API
+
+| 方法 | 路径 | 功能 |
+|------|------|------|
+| POST | `/agent/decide` | Agent 行为决策 |
+
+### Emotion API
+
+| 方法 | 路径 | 功能 |
+|------|------|------|
+| GET | `/emotion/state` | 获取当前情绪状态 |
 
 ---
 
 ## 附：通用错误响应格式
 
-所有非 SSE 接口的统一错误响应：
-
 ```json
 {
   "success": false,
   "message": "错误描述",
-  "timestamp": "2026-08-11T12:00:00.000Z"
+  "timestamp": "2026-08-12T12:00:00.000Z"
 }
 ```

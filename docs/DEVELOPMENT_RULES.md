@@ -87,7 +87,7 @@
 
 - 每个模块包含：`module.ts`、`controller.ts`、`service.ts`
 - DTO 使用 `class-validator` 装饰器校验
-- Prompt 模板单独存放于 `server/prompts/`
+- Prompt 模板单独存放于 `server/src/prompts/`
 - 不在 Controller 中写业务逻辑
 
 ### 4.5 错误处理
@@ -176,36 +176,67 @@ AI 编程助手（如当前助手）在进行开发时需要遵循：
 7. **构建验证** — 修改后端代码后执行 `npm run build` 确认无错误
 
 ---
-## 九、NestJS模块依赖规范
+## 九、NestJS 模块依赖规范
 
 新增业务模块时必须：
 
 1. 创建 xxx.module.ts
 
-2. Service如果需要被其他模块调用：
-必须加入 exports
+2. Service 如果需要被其他模块调用，必须加入 exports
 
-例如：
+```
+exports: [XxxService]
+```
 
-exports:[
- XxxService
-]
+3. 使用该 Service 的模块，必须 imports 对应 Module
 
+```
+imports: [XxxModule]
+```
 
-3. 使用该Service的模块：
-必须imports对应Module
+4. 修改完成后检查：Module 注册 / Provider 注入 / Service 依赖 / Controller 路由
 
+---
 
-例如：
+## 十、模块开发规范
 
-imports:[
- XxxModule
-]
+### 10.1 模块边界原则
 
+**一个业务能力 = 一个 NestJS Module。**
 
-4. 修改完成后检查：
+禁止将不相关的功能堆积到已有模块，尤其是 ChatService。
 
-- Module注册
-- Provider注入
-- Service依赖
-- Controller路由
+| 功能 | 所属模块 | 禁止 |
+|------|----------|------|
+| 对话流程编排 | ChatModule | 不要放记忆/语音/视觉逻辑 |
+| 记忆提取与存储 | MemoryModule | 不要放向量检索逻辑 |
+| 向量化与语义搜索 | VectorMemoryModule | 不要放记忆提取逻辑 |
+| Provider 管理 | ProviderModule | 不要放聊天配置解析 |
+
+### 10.2 新功能开发流程
+
+1. 在 `MODULES.md` 中确认模块职责
+2. 定义接口（interface / DTO）
+3. 编写 NestJS Module → Service → Controller
+4. 编写前端 Component + Store
+5. 补充 API 文档 → `API_DOC.md`
+6. 更新 CHANGELOG → `CHANGELOG.md`
+7. 更新 TODO → `TODO.md`
+
+### 10.3 Vue 开发规范
+
+- 页面组件和业务逻辑分离
+- Settings 页面按功能分区
+- 组件按功能分子目录（`chat/`、`settings/`、`live2d/`）
+
+---
+
+## 十一、AI Prompt 管理规范
+
+1. **Prompt 不硬编码** — 所有模板存放在 `server/src/prompts/`
+2. **文件名语义化** — `system.txt`、`character.txt`、`memory-extraction.txt`
+3. **加载方式** — 通过 `loadPrompt(fileName)` 读取，失败降级为空字符串
+4. **构建保障** — `nest-cli.json` 配置 assets 自动复制到 `dist/prompts/`
+5. **修改后重启** — Prompt 文件修改后需重启服务才能生效
+
+禁止在代码中硬编码角色人格或系统指令。
