@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { CharacterService } from '../character/character.service'
 import { PersonaBuilder } from '../character/persona-builder'
 import { MemoryService } from '../memory/memory.service'
@@ -25,9 +26,15 @@ export class PromptContextService {
   constructor(
     private readonly characterService: CharacterService,
     private readonly memoryService: MemoryService,
-    private readonly vectorMemory: VectorMemoryService
+    private readonly vectorMemory: VectorMemoryService,
+    private readonly configService: ConfigService
   ) {
     this.fallbackCharacterPrompt = this.loadPrompt('character.txt')
+  }
+
+  /** 对话历史上下文条数上限 */
+  private get contextLimit(): number {
+    return this.configService.get<number>('CHAT_CONTEXT_LIMIT', 20)
   }
 
   /**
@@ -59,8 +66,8 @@ export class PromptContextService {
       messages.push({ role: 'system', content: persona })
     }
 
-    // 4. 历史对话（最近 20 条）
-    const recentHistory = history.slice(-20)
+    // 4. 历史对话（最近 N 条）
+    const recentHistory = history.slice(-this.contextLimit)
     for (const msg of recentHistory) {
       messages.push({ role: msg.role, content: msg.content })
     }

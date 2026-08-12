@@ -25,6 +25,11 @@ export class ChatService {
     private readonly configService: ConfigService
   ) {}
 
+  /** 对话历史上下文条数上限 */
+  private get contextLimit(): number {
+    return this.configService.get<number>('CHAT_CONTEXT_LIMIT', 20)
+  }
+
   /**
    * 发送消息并获取流式响应
    *
@@ -62,7 +67,10 @@ export class ChatService {
     // fire-and-forget：异步提取长期记忆
     this.extractMemoriesFromMessage(dto.content, resolvedConfig, modelConfig)
 
-    let messages = await this.promptContext.buildMessages(dto.content, history, characterId)
+    // 截断历史消息到最近 N 条
+    const truncatedHistory = this.truncateHistory(history)
+
+    let messages = await this.promptContext.buildMessages(dto.content, truncatedHistory, characterId)
 
     // 上下文窗口检测与裁剪
     const modelName = resolvedConfig.model
@@ -147,6 +155,36 @@ export class ChatService {
     if (!key) return '<empty>'
     if (key.length <= 8) return key.substring(0, 4) + '...'
     return key.substring(0, 8) + '...'
+  }
+
+  /**
+   * 截断对话历史到最近 N 条
+   * 保留 system 消息 + 最近 (N - systemCount) 条对话
+   */
+  private truncateHistory(history: HistoryMessageDto[]): HistoryMessageDto[] {
+    const limit = this.contextLimit
+
+    if (history.length <= limit) {
+      this.logger.log(`[Context] history ${history.length} messages within limit ${limit}, no truncation`)
+      return history
+    }
+
+    // 分离 system 消息和对话消息
+    const systemMessages = history.filter((m) => m.role === 'system')
+    const conversationMessages = history.filter((m) => m.role !== 'system')
+
+    // system 消息始终保留（通常 1-2 条）
+    const availableSlots = Math.max(limit - systemMessages.length, 1)
+    const recentConversation = conversationMessages.slice(-availableSlots)
+
+    const result = [...systemMessages, ...recentConversation]
+
+    this.logger.log(
+      `[Context] history truncated: ${history.length} → ${result.length} ` +
+      `(system: ${systemMessages.length}, conversation: ${conversationMessages.length} → ${recentConversation.length}, limit: ${limit})`
+    )
+
+    return result
   }
 
   /**
