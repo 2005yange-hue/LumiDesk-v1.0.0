@@ -243,12 +243,35 @@
 
 ---
 
+## v0.6.0 — Conversation & Context Enhancement（Phase 1）
+
+**日期：** 2026-08-12
+
+### 新增
+- **ConversationModule** — 会话管理后端模块
+  - 会话 CRUD（`GET/POST/PATCH/DELETE /api/conversations`）
+  - 历史消息分页查询（`GET /api/conversations/:id/messages`，支持 page/limit）
+  - `message_count` 缓存字段（increment 累加，避免 COUNT 查询）
+  - 级联删除（数据库事务保证原子性）
+  - `saveCurrentMessages()` 自动维护活跃会话
+- ChatController 持久化调用迁移至 `ConversationService.saveCurrentMessages()`
+
+### 修改
+- `conversation.entity.ts` — 新增 `message_count` INT DEFAULT 0
+- `chat.controller.ts` — 替换 `MemoryService` → `ConversationService`（仅 saveMessages 调用）
+- `chat.module.ts` / `app.module.ts` — 注册 `ConversationModule`
+
+### 数据库变化
+- `conversations` 表新增 `message_count` 列（INT, DEFAULT 0）
+
+---
+
 ## 后续版本规划
 
-### v0.6.0 — 对话体验增强
-- 对话历史分页加载
-- 消息编辑与重新生成
-- 消息复制功能
+### v0.6.0 — 对话体验增强（Phase 2）
+- 前端 ConversationSidebar 会话列表
+- 对话切换与历史加载
+- 会话重命名
 
 ### v0.7.0 — Live2D 角色展示
 - Live2D 模型加载

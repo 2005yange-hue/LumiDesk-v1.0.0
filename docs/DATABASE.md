@@ -32,7 +32,8 @@
 | `id` | VARCHAR(36) | PK | UUID 主键 |
 | `user_id` | VARCHAR(36) | NOT NULL | 所属用户 |
 | `character_id` | VARCHAR(36) | NULL | 关联角色 |
-| `title` | VARCHAR(255) | NULL | 对话标题 |
+| `title` | VARCHAR(200) | NULL | 对话标题 |
+| `message_count` | INT | NOT NULL, DEFAULT 0 | 消息总数（缓存字段，increment 维护） |
 | `created_at` | TIMESTAMP | NOT NULL | 创建时间 |
 | `updated_at` | TIMESTAMP | NOT NULL | 更新时间 |
 

@@ -11,6 +11,7 @@
 | Chat API | `/chat` | ✅ 已实现 |
 | Provider API | `/provider` | ✅ 已实现 |
 | Character API | `/character` | ✅ 已实现 |
+| Conversation API | `/conversations` | ✅ 已实现 |
 | Health API | `/health` | ✅ 已实现 |
 | Memory API | — | 📋 规划中（当前通过 Provider API 间接使用） |
 | Vision API | — | 📋 规划中 |
@@ -310,7 +311,124 @@ data: {"content":"","fullContent":"完整回复内容","done":true,"id":"msg-uui
 
 ---
 
-## 四、Health API
+## 四、Conversation API
+
+### GET /api/conversations
+
+**功能：** 获取当前用户的会话列表（按更新时间倒序）。
+
+**响应：**
+```json
+[
+  {
+    "id": "uuid",
+    "title": "关于游戏开发的讨论",
+    "message_count": 24,
+    "created_at": "2026-08-12T10:00:00.000Z",
+    "updated_at": "2026-08-12T12:00:00.000Z"
+  }
+]
+```
+
+---
+
+### GET /api/conversations/:id
+
+**功能：** 获取单个会话详情。
+
+**响应：**
+```json
+{
+  "id": "uuid",
+  "user_id": "default",
+  "character_id": null,
+  "title": "关于游戏开发的讨论",
+  "message_count": 24,
+  "created_at": "2026-08-12T10:00:00.000Z",
+  "updated_at": "2026-08-12T12:00:00.000Z"
+}
+```
+
+---
+
+### GET /api/conversations/:id/messages
+
+**功能：** 分页获取会话的历史消息。
+
+**查询参数：**
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `page` | number | 1 | 页码 |
+| `limit` | number | 50 | 每页条数（最大 200） |
+
+**响应：**
+```json
+{
+  "messages": [
+    {
+      "id": "uuid",
+      "role": "user",
+      "content": "你好",
+      "token_count": null,
+      "created_at": "2026-08-12T10:00:00.000Z"
+    },
+    {
+      "id": "uuid",
+      "role": "assistant",
+      "content": "你好！",
+      "token_count": null,
+      "created_at": "2026-08-12T10:00:05.000Z"
+    }
+  ],
+  "total": 24
+}
+```
+
+---
+
+### POST /api/conversations
+
+**功能：** 创建新会话。
+
+**请求体：**
+```json
+{
+  "title": "新对话（可选）"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `title` | string | ❌ | 会话标题，最长 200 字符 |
+
+---
+
+### PATCH /api/conversations/:id
+
+**功能：** 更新会话标题。
+
+**请求体：**
+```json
+{
+  "title": "关于游戏开发的讨论"
+}
+```
+
+---
+
+### DELETE /api/conversations/:id
+
+**功能：** 删除会话及其所有关联消息（事务保证原子性）。
+
+**响应：**
+```json
+{ "success": true }
+```
+
+---
+
+## 五、Health API
 
 ### GET /api/health
 

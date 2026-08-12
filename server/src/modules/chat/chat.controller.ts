@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Res, HttpCode, Logger } from '@nestjs/common'
 import { Response } from 'express'
 import { ChatService } from './chat.service'
-import { MemoryService } from '../memory/memory.service'
+import { ConversationService } from '../conversation/conversation.service'
 import { RuntimeModelConfig } from '../llm/llm-types'
 import { HistoryMessageDto } from './dto/message-response.dto'
 import { formatLLMError } from '../../common/error-formatter'
@@ -12,7 +12,7 @@ export class ChatController {
 
   constructor(
     private readonly chatService: ChatService,
-    private readonly memoryService: MemoryService
+    private readonly conversationService: ConversationService
   ) {}
 
   /**
@@ -57,7 +57,7 @@ export class ChatController {
       res.end()
 
       // 异步持久化聊天记录（不阻塞 SSE 响应）
-      this.memoryService.saveMessages(body.content, fullContent, body.characterId)
+      this.conversationService.saveCurrentMessages(body.content, fullContent)
     } catch (error) {
       this.logger.error('Chat error:', error)
       // 错误也不终止 SSE，确保前端能收到错误信息

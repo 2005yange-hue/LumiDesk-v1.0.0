@@ -168,6 +168,36 @@ MemorySearchResult[]  // 相似记忆列表
 
 ---
 
+## ConversationModule
+
+**位置：** `server/src/modules/conversation/`
+
+**职责：**
+- 会话 CRUD（创建/查询/更新/删除）
+- 历史消息分页查询
+- 聊天消息持久化（用户消息 + AI 回复）
+- `message_count` 缓存维护（increment 累加，避免 COUNT 查询）
+
+**依赖：**
+- TypeORM — MySQL 操作 (Conversation + Message 实体)
+
+**不负责：**
+- LLM 调用 → LLMModule
+- Memory 提取 → MemoryModule
+- Provider 管理 → ProviderModule
+
+**输入（CRUD）：**
+```
+CreateConversationDto / UpdateConversationDto
+```
+
+**输出：**
+```
+Conversation / Message[]
+```
+
+---
+
 ## ProviderModule
 
 **位置：** `server/src/modules/provider/`

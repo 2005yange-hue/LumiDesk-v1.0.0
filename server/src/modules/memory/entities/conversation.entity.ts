@@ -14,6 +14,10 @@ export class Conversation {
   @Column({ type: 'varchar', length: 200, nullable: true })
   title: string
 
+  /** 消息总数（缓存字段，通过 increment 累加维护，避免 COUNT 查询） */
+  @Column({ type: 'int', default: 0 })
+  message_count: number
+
   @CreateDateColumn()
   created_at: Date
 

@@ -9,6 +9,7 @@ import { CharacterModule } from './modules/character/character.module'
 import { MemoryModule } from './modules/memory/memory.module'
 import { VectorMemoryModule } from './modules/vector-memory/vector-memory.module'
 import { ProviderModule } from './modules/provider/provider.module'
+import { ConversationModule } from './modules/conversation/conversation.module'
 
 @Module({
   imports: [
@@ -36,7 +37,8 @@ import { ProviderModule } from './modules/provider/provider.module'
     CharacterModule,
     MemoryModule,
     VectorMemoryModule,
-    ProviderModule
+    ProviderModule,
+    ConversationModule
   ],
   controllers: [AppController],
   providers: [AppService]
