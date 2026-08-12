@@ -151,25 +151,116 @@
 
 ---
 
+## v0.5.1 — 动态 API Provider 管理系统
+
+**日期：** 2026-08-12
+
+### 新增
+- Provider CRUD 接口（`GET/POST/PUT/DELETE /api/provider`）
+- `ModelProvider` 实体 + `model_providers` 表（TypeORM + MySQL）
+- Provider 优先级链：`providerId` → default Provider（`is_default=true`）→ `.env`
+- 前端 Provider 管理界面（ProviderSettings + ProviderDialog），酒馆风格设计
+- Provider 预设模板（OpenAI / DeepSeek / SiliconFlow / Gemini / OpenRouter / 自定义）
+- 连接测试功能（`POST /api/provider/test`）+ 友好错误分类（401/403/404/429）
+- 远程模型列表获取（`GET /api/provider/:id/models`）
+- API Key 安全隔离：前端永远脱敏（`****`），完整 Key 仅在后端 Service 层使用
+- `isMaskedApiKey()` 检测避免脱敏 Key 覆盖 DB
+
+### 修改
+- `server/src/modules/provider/` — 新增模块（controller/service/entities/dtos）
+- `server/src/modules/chat/chat.service.ts` — `resolveModelConfig()` 三层优先级
+- `src/components/settings/ProviderSettings.vue` — Provider 列表 + 详情面板
+- `src/components/settings/ProviderDialog.vue` — 新建/编辑弹窗
+- `src/stores/provider.store.ts` — Pinia Provider 状态管理
+- `src/services/provider.api.ts` — Provider API 封装
+- `src/types/provider.types.ts` — Provider 类型定义 + 预设常量
+
+### 数据库变化
+- 新增 `model_providers` 表（支持多 Provider 并存）
+- 新增 `provider_models` 表（本地模型记录）
+
+---
+
+## v0.5.2 — 模型配置与高级参数
+
+**日期：** 2026-08-12
+
+### 新增
+- `provider_type` 字段（openai / deepseek / gemini / claude / openrouter）
+- 模型参数：`temperature` / `max_tokens` / `top_p`
+- 高级参数：`stream` / `timeout` / `custom_headers` / `custom_body`
+- 酒馆风格高级设置折叠区
+- 连接测试增强：返回 `tokens` 数量、延迟、友好错误分类
+- 模型列表搜索过滤
+
+### 修改
+- `server/src/modules/provider/entities/model-provider.entity.ts` — 新增 8 个字段
+- `server/src/modules/provider/provider.service.ts` — 测试连接返回增强
+- `server/src/modules/provider/dto/create-provider.dto.ts` — 新增高级参数字段
+- `server/src/modules/provider/dto/update-provider.dto.ts` — 新增高级参数字段
+- `src/components/settings/ProviderDialog.vue` — 高级设置折叠区 + 模型搜索
+- `src/components/settings/ProviderSettings.vue` — 模型搜索 + 过滤计数
+
+### 简化
+- 移除"已保存模型"UI 和独立"模型配置"设置页，模型选择统一在 Dialog 中完成
+
+---
+
+## v0.5.3 — 系统稳定性与优化
+
+**日期：** 2026-08-12
+
+### 新增
+- 对话上下文管理：`CHAT_CONTEXT_LIMIT` 配置（默认 20 条），自动截断历史消息
+- `truncateHistory()` 智能截断：保留 system 消息 + 最近对话
+- Prompt 加载成功日志（`Loaded prompt: system.txt (214 chars)`）
+
+### 修复
+- **ChromaDB v1 → v2 API 迁移**：所有 `/api/v1/collections` 改为 `/api/v2/tenants/default_tenant/databases/default_database/collections`，支持 `CHROMA_API_VERSION` 配置
+- **Embedding 降级优化**：`EmbeddingService` 失败时返回 `null` 而非 `[]`，`VectorMemoryService` 检测到 null 后跳过 Chroma 调用，避免 `dimension=0` 误判成功
+- **Memory Extractor Prompt 重写**：明确模块身份、强制严格 JSON 输出、多策略 `parseEntries()` 容错解析
+- **Prompt 消息顺序优化**：character prompt 移到 memory context 之前，防止记忆内容覆盖角色人格
+- **Prompts 资源路径修复**：`server/prompts/` → `server/src/prompts/`，配置 `nest-cli.json` assets 复制到 `dist/`，开发和生产环境均正常加载
+- **模型参数 UI 简化**：Temperature / Top-P 删除冗余的 `el-slider`，统一使用 `el-input-number`
+- **配置一致性修复**：新建 Provider 补齐 7 个缺失字段（temperature/max_tokens/top_p/stream/timeout/custom_headers/custom_body）；编辑弹窗切换时重置 modelList/showAdvanced；详情页增加高级参数展示；切换模型后刷新 selected 引用
+
+### 修改
+- `server/src/modules/vector-memory/chroma/chroma.service.ts` — v1 → v2 迁移
+- `server/src/modules/vector-memory/embedding/embedding.interface.ts` — 返回类型改为 nullable
+- `server/src/modules/vector-memory/embedding/embedding.service.ts` — 失败返回 null
+- `server/src/modules/vector-memory/vector-memory.service.ts` — null 检测跳过 Chroma
+- `server/src/modules/memory/memory-extractor.service.ts` — Prompt 重写 + parseEntries()
+- `server/src/modules/chat/chat.service.ts` — 新增 contextLimit + truncateHistory()
+- `server/src/modules/chat/prompt-context.service.ts` — 配置化 contextLimit + 消息顺序调整 + 成功日志
+- `server/nest-cli.json` — 新增 assets 配置
+- `server/prompts/` → `server/src/prompts/` — 资源文件迁移
+- `src/components/settings/ProviderDialog.vue` — UI 简化 + 字段补齐 + 状态重置
+- `src/components/settings/ProviderSettings.vue` — 高级参数展示 + selected 刷新
+
+### 环境变量
+- 新增 `CHROMA_API_VERSION`（默认 v2）
+- 新增 `CHAT_CONTEXT_LIMIT`（默认 20）
+
+---
+
 ## 后续版本规划
 
-### v0.5.0 — 记忆系统
-- MySQL + TypeORM 数据持久化
-- 向量数据库集成（Chroma）
-- 聊天记录保存
-- 长期记忆提取与检索
+### v0.6.0 — 对话体验增强
+- 对话历史分页加载
+- 消息编辑与重新生成
+- 消息复制功能
 
-### v0.6.0 — Live2D 角色展示
+### v0.7.0 — Live2D 角色展示
 - Live2D 模型加载
 - 动作/表情控制
 - 情绪-动作映射
 
-### v0.7.0 — 视觉感知
+### v0.8.0 — 视觉感知
 - Electron 截图采集
 - VLM 多模态分析
 - 环境状态识别
 
-### v0.8.0 — Agent 主动交互
+### v0.9.0 — Agent 主动交互
 - 行为决策引擎
 - 情绪系统动态变化
 - 主动提醒与通知
