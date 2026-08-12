@@ -33,7 +33,6 @@ export class ModelProvider {
   /**
    * API 协议类型
    * openai | openai-compatible | deepseek | gemini | claude | openrouter
-   * 所有类型统一使用 OpenAI Compatible 接口调用
    */
   @Column({ type: 'varchar', length: 32, default: 'openai-compatible' })
   provider_type: string
@@ -42,7 +41,7 @@ export class ModelProvider {
   @Column({ type: 'varchar', length: 512 })
   base_url: string
 
-  /** API 密钥（生产环境建议加密存储） */
+  /** API 密钥 */
   @Column({ type: 'varchar', length: 512 })
   api_key: string
 
@@ -54,9 +53,21 @@ export class ModelProvider {
   @Column({ type: 'boolean', default: true })
   enabled: boolean
 
-  /** 是否为默认 Provider（每个用户仅一个） */
+  /** 是否为默认 Provider */
   @Column({ type: 'boolean', default: false })
   is_default: boolean
+
+  /** 温度参数 (0-2) */
+  @Column({ type: 'float', default: 0.7 })
+  temperature: number
+
+  /** 最大 Token 数 */
+  @Column({ type: 'int', default: 4096 })
+  max_tokens: number
+
+  /** Top-P 采样 */
+  @Column({ type: 'float', default: 1.0 })
+  top_p: number
 
   @CreateDateColumn()
   created_at: Date

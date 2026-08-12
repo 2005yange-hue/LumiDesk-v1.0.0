@@ -105,6 +105,12 @@
           <span class="value mono">{{ selected.model }}</span>
         </div>
         <div class="detail-row">
+          <span class="label">模型参数</span>
+          <span class="value">
+            temp={{ selected.temperature ?? 0.7 }}, max_t={{ selected.max_tokens ?? 4096 }}, top_p={{ selected.top_p ?? 1 }}
+          </span>
+        </div>
+        <div class="detail-row">
           <span class="label">API Key</span>
           <span class="value mono">{{ selected.api_key }}</span>
         </div>
@@ -148,6 +154,39 @@
             <el-tag size="small" type="info">{{ m.id }}</el-tag>
           </div>
         </div>
+
+        <!-- 本地保存的模型 -->
+        <div class="detail-section">
+          <div class="detail-section-header">
+            <span class="label">已保存模型</span>
+            <el-button size="small" text type="primary" @click="showAddModel = !showAddModel">
+              {{ showAddModel ? '取消' : '+ 添加' }}
+            </el-button>
+          </div>
+          <div v-if="showAddModel" class="add-model-row">
+            <el-input
+              v-model="newModelName"
+              size="small"
+              placeholder="模型名，如 gpt-4o-mini"
+              @keyup.enter="handleAddModel"
+            />
+            <el-button size="small" type="primary" @click="handleAddModel">确认</el-button>
+          </div>
+          <div v-if="savedModels.length > 0" class="saved-models">
+            <div v-for="m in savedModels" :key="m.id" class="saved-model-item">
+              <span class="model-name">{{ m.model_name }}</span>
+              <el-button
+                size="small"
+                text
+                type="danger"
+                @click="handleDeleteModel(m.id)"
+              >
+                删除
+              </el-button>
+            </div>
+          </div>
+          <div v-else class="empty-models">暂无保存的模型</div>
+        </div>
       </div>
     </div>
 
@@ -165,11 +204,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useProviderStore } from '@/stores/provider.store'
 import ProviderDialog from './ProviderDialog.vue'
-import { ElMessage } from 'element-plus'
-import type { ProviderInfo } from '@/types/provider.types'
+import { ElMessage, ElInput } from 'element-plus'
+import type { ProviderInfo, SavedModel } from '@/types/provider.types'
 import { PROVIDER_TYPE_LABELS } from '@/types/provider.types'
 
 const store = useProviderStore()
@@ -183,19 +222,34 @@ const selected = ref<ProviderInfo | null>(null)
 const testingId = ref<number | null>(null)
 const loadingModels = ref(false)
 const detailModelList = ref<Array<{ id: string; owned_by: string }>>([])
+const savedModels = ref<SavedModel[]>([])
+const newModelName = ref('')
+const showAddModel = ref(false)
 
-onMounted(() => {
-  store.fetchProviders().then(() => {
-    if (store.providers.length > 0 && !selected.value) {
-      selected.value = store.providers[0]
-    }
-  })
+onMounted(async () => {
+  await store.fetchProviders()
+  if (store.providers.length > 0 && !selected.value) {
+    selected.value = store.providers[0]
+    savedModels.value = await store.fetchSavedModels(store.providers[0].id)
+  }
 })
 
 function selectProvider(p: ProviderInfo): void {
   selected.value = p
   detailModelList.value = []
+  needRefreshModels.value = true
 }
+
+/** 当选中 Provider 变化时加载模型 */
+watch(selected, async (p) => {
+  if (p) {
+    savedModels.value = await store.fetchSavedModels(p.id)
+  } else {
+    savedModels.value = []
+  }
+})
+
+const needRefreshModels = ref(false)
 
 function openCreate(): void {
   editTarget.value = null
@@ -274,6 +328,31 @@ async function handleFetchModels(): Promise<void> {
 
 function formatUrl(url: string): string {
   return url.replace(/^https?:\/\//, '').replace(/\/+$/, '')
+}
+
+async function handleAddModel(): Promise<void> {
+  if (!selected.value || !newModelName.value.trim()) return
+  const result = await store.addModel(selected.value.id, newModelName.value.trim())
+  if (result) {
+    ElMessage.success(`模型「${result.model_name}」已添加`)
+    newModelName.value = ''
+    showAddModel.value = false
+    savedModels.value = await store.fetchSavedModels(selected.value!.id)
+  } else {
+    ElMessage.error('添加失败')
+  }
+}
+
+async function handleDeleteModel(modelId: number): Promise<void> {
+  const ok = await store.deleteModel(modelId)
+  if (ok) {
+    ElMessage.success('已删除')
+    if (selected.value) {
+      savedModels.value = await store.fetchSavedModels(selected.value.id)
+    }
+  } else {
+    ElMessage.error('删除失败')
+  }
 }
 </script>
 
@@ -508,6 +587,60 @@ function formatUrl(url: string): string {
 
     .model-item {
       cursor: pointer;
+    }
+  }
+
+  .detail-section {
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+
+    .detail-section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+
+      .label {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-secondary);
+      }
+    }
+
+    .add-model-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+
+      .el-input { flex: 1; }
+    }
+
+    .saved-models {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+
+      .saved-model-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 8px;
+        background: var(--bg-sidebar);
+        border-radius: var(--radius-sm);
+
+        .model-name {
+          font-size: 12px;
+          color: var(--text-primary);
+          font-family: 'Cascadia Code', 'Fira Code', monospace;
+        }
+      }
+    }
+
+    .empty-models {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      text-align: center;
+      padding: 8px 0;
     }
   }
 }

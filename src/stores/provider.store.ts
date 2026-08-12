@@ -5,6 +5,7 @@ import type {
   CreateProviderData,
   TestConnectionResult,
   ModelInfo,
+  SavedModel,
   ProviderConnectionStatus
 } from '@/types/provider.types'
 import {
@@ -16,7 +17,10 @@ import {
   deleteProvider as deleteProviderApi,
   testConnection as testConnectionApi,
   fetchModels as fetchModelsApi,
-  getProviderModels
+  getProviderModels,
+  getSavedModels,
+  addProviderModel,
+  removeProviderModel
 } from '@/services/provider.api'
 
 const STORAGE_KEY = 'ai-companion-provider'
@@ -181,6 +185,34 @@ export const useProviderStore = defineStore('provider', () => {
     }
   }
 
+  /** 获取 Provider 的本地保存模型 */
+  async function fetchSavedModels(providerId: number): Promise<SavedModel[]> {
+    try {
+      return await getSavedModels(providerId)
+    } catch {
+      return []
+    }
+  }
+
+  /** 添加模型到 Provider */
+  async function addModel(providerId: number, modelName: string): Promise<SavedModel | null> {
+    try {
+      return await addProviderModel(providerId, modelName)
+    } catch {
+      return null
+    }
+  }
+
+  /** 删除 Provider 模型 */
+  async function deleteModel(modelId: number): Promise<boolean> {
+    try {
+      await removeProviderModel(modelId)
+      return true
+    } catch {
+      return false
+    }
+  }
+
   /** 刷新 Provider 状态（聊天页面切换时调用） */
   async function refreshActive(): Promise<void> {
     try {
@@ -214,6 +246,9 @@ export const useProviderStore = defineStore('provider', () => {
     testProviderConnection,
     fetchModelList,
     fetchModelsByProviderId,
+    fetchSavedModels,
+    addModel,
+    deleteModel,
     refreshActive,
     saveActiveId
   }

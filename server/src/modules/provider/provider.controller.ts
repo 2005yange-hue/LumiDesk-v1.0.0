@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Logger } from '@nestjs
 import { ProviderService } from './provider.service'
 import { CreateProviderDto } from './dto/create-provider.dto'
 import { UpdateProviderDto } from './dto/update-provider.dto'
-import { TestConnectionDto, FetchModelsDto } from './dto/test-connection.dto'
+import { TestConnectionDto, FetchModelsDto, AddProviderModelDto } from './dto/test-connection.dto'
 
 @Controller('provider')
 export class ProviderController {
@@ -10,69 +10,78 @@ export class ProviderController {
 
   constructor(private readonly providerService: ProviderService) {}
 
-  /** 获取所有 Provider */
+  // ====================================================
+  // 固定路由（必须在参数路由之前）
+  // ====================================================
+
   @Get()
   async getProviders() {
     return this.providerService.getProviders()
   }
 
-  /** 获取当前启用的 Provider（返回脱敏 Key） */
   @Get('active')
   async getActiveProvider() {
     const provider = await this.providerService.getActiveProvider()
     return provider ? this.providerService.maskApiKey(provider) : null
   }
 
-  /** 获取默认 Provider（返回脱敏 Key） */
   @Get('default')
   async getDefaultProvider() {
     const provider = await this.providerService.getDefaultProvider()
     return provider ? this.providerService.maskApiKey(provider) : null
   }
 
-  /** 获取指定 Provider 的模型列表（通过 ID） */
-  @Get(':id/models')
-  async getModelsByProviderId(@Param('id') id: string) {
-    this.logger.log(`Fetching models for provider id=${id}`)
-    return this.providerService.listModelsByProviderId(Number(id))
-  }
-
-  /** 创建 Provider */
   @Post()
   async createProvider(@Body() dto: CreateProviderDto) {
     return this.providerService.createProvider(dto)
   }
 
-  /** 更新 Provider */
-  @Put(':id')
-  async updateProvider(@Param('id') id: string, @Body() dto: UpdateProviderDto) {
-    return this.providerService.updateProvider(Number(id), dto)
-  }
-
-  /** 删除 Provider */
-  @Delete(':id')
-  async deleteProvider(@Param('id') id: string) {
-    await this.providerService.deleteProvider(Number(id))
-    return { success: true }
-  }
-
-  /**
-   * 测试 API 连接
-   * POST /api/provider/test
-   */
   @Post('test')
   async testConnection(@Body() dto: TestConnectionDto) {
     this.logger.log(`Testing connection to: ${dto.base_url}`)
     return this.providerService.testConnection(dto.base_url, dto.api_key, dto.model)
   }
 
-  /**
-   * 获取 API 模型列表（传入 base_url + api_key）
-   * POST /api/provider/models
-   */
   @Post('models')
   async getModels(@Body() dto: FetchModelsDto) {
     this.logger.log(`Fetching models from: ${dto.base_url}`)
     return this.providerService.listModels(dto.base_url, dto.api_key)
+  }
+
+  // 模型 CRUD 的固定路径在参数路径之前
+  @Delete('model/:modelId')
+  async deleteProviderModel(@Param('modelId') modelId: string) {
+    await this.providerService.removeModel(Number(modelId))
+    return { success: true }
+  }
+
+  // ====================================================
+  // 参数路由（:id 结尾的放在最后）
+  // ====================================================
+
+  @Get(':id/saved-models')
+  async getSavedModels(@Param('id') id: string) {
+    return this.providerService.getSavedModels(Number(id))
+  }
+
+  @Get(':id/models')
+  async getModelsByProviderId(@Param('id') id: string) {
+    return this.providerService.listModelsByProviderId(Number(id))
+  }
+
+  @Post(':id/models')
+  async addProviderModel(@Param('id') id: string, @Body() dto: AddProviderModelDto) {
+    return this.providerService.addModel(Number(id), dto.model_name)
+  }
+
+  @Put(':id')
+  async updateProvider(@Param('id') id: string, @Body() dto: UpdateProviderDto) {
+    return this.providerService.updateProvider(Number(id), dto)
+  }
+
+  @Delete(':id')
+  async deleteProvider(@Param('id') id: string) {
+    await this.providerService.deleteProvider(Number(id))
+    return { success: true }
   }
 }

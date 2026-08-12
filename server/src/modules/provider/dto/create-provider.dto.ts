@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, MaxLength } from 'class-validator'
+import { IsString, IsOptional, IsBoolean, IsNumber, MaxLength, Min, Max } from 'class-validator'
 
 export class CreateProviderDto {
   @IsOptional()
@@ -37,4 +37,21 @@ export class CreateProviderDto {
   @IsOptional()
   @IsBoolean()
   is_default?: boolean
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(2)
+  temperature?: number
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  max_tokens?: number
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  top_p?: number
 }

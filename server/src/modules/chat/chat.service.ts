@@ -90,14 +90,15 @@ export class ChatService {
             `id=${provider.id}, name=${provider.name}, ` +
             `model=${provider.model}, base_url=${provider.base_url}, ` +
             `type=${provider.provider_type}, ` +
+            `temp=${provider.temperature}, max_tokens=${provider.max_tokens}, ` +
             `api_key=${this.#safeKeyPrefix(provider.api_key)}`
           )
           return {
             apiKey: provider.api_key,
             apiBaseUrl: provider.base_url,
             model: modelConfig.model || provider.model,
-            temperature: modelConfig.temperature ?? 0.7,
-            maxTokens: modelConfig.maxTokens ?? 1024
+            temperature: modelConfig.temperature ?? provider.temperature,
+            maxTokens: modelConfig.maxTokens ?? provider.max_tokens
           }
         }
         this.logger.warn(`[Provider Debug] resolveModelConfig → providerId=${modelConfig.providerId} not found`)
@@ -115,14 +116,15 @@ export class ChatService {
           `name=${provider.name}, model=${provider.model}, ` +
           `base_url=${provider.base_url}, ` +
           `type=${provider.provider_type}, ` +
+          `temp=${provider.temperature}, ` +
           `api_key=${this.#safeKeyPrefix(provider.api_key)}`
         )
         return {
           apiKey: provider.api_key,
           apiBaseUrl: provider.base_url,
           model: modelConfig?.model || provider.model,
-          temperature: modelConfig?.temperature ?? 0.7,
-          maxTokens: modelConfig?.maxTokens ?? 1024
+          temperature: modelConfig?.temperature ?? provider.temperature,
+          maxTokens: modelConfig?.maxTokens ?? provider.max_tokens
         }
       }
     } catch (error) {

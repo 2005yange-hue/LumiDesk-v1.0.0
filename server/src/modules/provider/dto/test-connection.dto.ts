@@ -22,10 +22,15 @@ export class FetchModelsDto {
 /** 连接测试返回结果 */
 export interface ProviderTestResult {
   success: boolean
-  /** 延迟（毫秒） */
   latency: number
-  /** 测试使用的模型名 */
   model: string
-  /** 失败时的错误信息 */
   message?: string
+  /** API 返回的响应摘要 */
+  response?: string
+}
+
+/** 添加模型到 Provider */
+export class AddProviderModelDto {
+  @IsString()
+  model_name: string
 }

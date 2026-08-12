@@ -3,7 +3,8 @@ import type {
   ProviderInfo,
   CreateProviderData,
   TestConnectionResult,
-  ModelInfo
+  ModelInfo,
+  SavedModel
 } from '@/types/provider.types'
 
 const BASE = '/api/provider'
@@ -73,4 +74,21 @@ export async function fetchModels(
     api_key: apiKey
   })
   return data.data
+}
+
+/** 获取 Provider 的本地保存模型列表 */
+export async function getSavedModels(providerId: number): Promise<SavedModel[]> {
+  const { data } = await axios.get(`${BASE}/${providerId}/saved-models`)
+  return data.data
+}
+
+/** 添加模型到 Provider */
+export async function addProviderModel(providerId: number, modelName: string): Promise<SavedModel> {
+  const { data } = await axios.post(`${BASE}/${providerId}/models`, { model_name: modelName })
+  return data.data
+}
+
+/** 删除 Provider 模型 */
+export async function removeProviderModel(modelId: number): Promise<void> {
+  await axios.delete(`${BASE}/model/${modelId}`)
 }

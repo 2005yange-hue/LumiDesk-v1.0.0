@@ -10,6 +10,9 @@ export interface ProviderInfo {
   model: string
   enabled: boolean
   is_default: boolean
+  temperature: number
+  max_tokens: number
+  top_p: number
   created_at: string
   updated_at: string
 }
@@ -24,6 +27,9 @@ export interface CreateProviderData {
   model: string
   enabled?: boolean
   is_default?: boolean
+  temperature?: number
+  max_tokens?: number
+  top_p?: number
 }
 
 /** 连接测试结果 */
@@ -32,6 +38,16 @@ export interface TestConnectionResult {
   latency: number
   model: string
   message?: string
+  response?: string
+}
+
+/** 本地保存的 Provider 模型 */
+export interface SavedModel {
+  id: number
+  provider_id: number
+  model_name: string
+  enabled: boolean
+  created_at: string
 }
 
 /** 每个 Provider 的连接状态缓存 */
@@ -43,7 +59,7 @@ export interface ProviderConnectionStatus {
   message?: string
 }
 
-/** API 模型信息 */
+/** API 模型信息（远程获取） */
 export interface ModelInfo {
   id: string
   owned_by: string

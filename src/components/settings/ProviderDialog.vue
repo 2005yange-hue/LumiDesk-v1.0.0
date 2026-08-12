@@ -56,6 +56,24 @@
         </div>
       </el-form-item>
 
+      <el-form-item label="模型参数" />
+
+      <el-form-item label="Temperature" label-width="100px">
+        <div class="param-row">
+          <el-slider v-model="form.temperature" :min="0" :max="2" :step="0.1" show-input />
+        </div>
+      </el-form-item>
+
+      <el-form-item label="Max Tokens" label-width="100px">
+        <el-input-number v-model="form.max_tokens" :min="1" :max="131072" :step="256" controls-position="right" />
+      </el-form-item>
+
+      <el-form-item label="Top-P" label-width="100px">
+        <div class="param-row">
+          <el-slider v-model="form.top_p" :min="0" :max="1" :step="0.05" show-input />
+        </div>
+      </el-form-item>
+
       <el-form-item label="连接测试">
         <el-button
           type="default"
@@ -120,7 +138,10 @@ const form = reactive({
   base_url: '',
   api_key: '',
   model: '',
-  is_default: false
+  is_default: false,
+  temperature: 0.7,
+  max_tokens: 4096,
+  top_p: 1.0
 })
 
 // 编辑时填充表单
@@ -133,7 +154,10 @@ watch(() => props.editProvider, (provider) => {
     form.base_url = provider.base_url
     form.model = provider.model
     form.is_default = provider.is_default
-    form.api_key = '' // 不预填 API Key（安全）
+    form.temperature = provider.temperature ?? 0.7
+    form.max_tokens = provider.max_tokens ?? 4096
+    form.top_p = provider.top_p ?? 1.0
+    form.api_key = ''
   } else {
     isEdit.value = false
     resetForm()
@@ -169,13 +193,16 @@ async function handleSave(): Promise<void> {
   saving.value = true
   try {
     if (isEdit.value && props.editProvider) {
-      const updateData: Record<string, string | boolean> = {
+      const updateData: Record<string, string | boolean | number> = {
         name: form.name,
         provider: form.provider,
         provider_type: form.provider_type,
         base_url: form.base_url,
         model: form.model,
-        is_default: form.is_default
+        is_default: form.is_default,
+        temperature: form.temperature,
+        max_tokens: form.max_tokens,
+        top_p: form.top_p
       }
       // 只有输入了新 Key 才更新
       if (form.api_key) {
