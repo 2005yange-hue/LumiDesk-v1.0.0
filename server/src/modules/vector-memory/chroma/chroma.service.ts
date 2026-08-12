@@ -32,8 +32,17 @@ export class ChromaService {
     this.baseUrl = this.configService.get<string>('CHROMA_URL', 'http://localhost:8000')
   }
 
+  private get apiVersion(): string {
+    return this.configService.get<string>('CHROMA_API_VERSION', 'v2')
+  }
+
   private get collectionName(): string {
     return this.configService.get<string>('VECTOR_COLLECTION', 'memory_entries')
+  }
+
+  /** Chroma v2 完整的 collections 基础路径 */
+  private get collectionsBasePath(): string {
+    return `${this.baseUrl}/api/${this.apiVersion}/tenants/default_tenant/databases/default_database/collections`
   }
 
   /**
@@ -44,7 +53,7 @@ export class ChromaService {
 
     try {
       const existing = await this.fetchJson<Array<{ id: string; name: string }>>(
-        `${this.baseUrl}/api/v1/collections`
+        this.collectionsBasePath
       )
 
       const found = existing?.find((c) => c.name === this.collectionName)
@@ -58,7 +67,7 @@ export class ChromaService {
     }
 
     const created = await this.fetchJson<{ id: string }>(
-      `${this.baseUrl}/api/v1/collections`,
+      this.collectionsBasePath,
       {
         method: 'POST',
         body: JSON.stringify({
@@ -79,7 +88,7 @@ export class ChromaService {
   async addMemory(payload: ChromaMemoryPayload): Promise<void> {
     const collectionId = await this.ensureCollection()
 
-    await this.fetchJson(`${this.baseUrl}/api/v1/collections/${collectionId}/add`, {
+    await this.fetchJson(`${this.collectionsBasePath}/${collectionId}/add`, {
       method: 'POST',
       body: JSON.stringify({
         ids: [payload.id],
@@ -107,7 +116,7 @@ export class ChromaService {
       documents: string[][]
       metadatas: Array<Array<Record<string, unknown>>>
       distances: number[][]
-    }>(`${this.baseUrl}/api/v1/collections/${collectionId}/query`, {
+    }>(`${this.collectionsBasePath}/${collectionId}/query`, {
       method: 'POST',
       body: JSON.stringify({
         query_embeddings: [queryEmbedding],
