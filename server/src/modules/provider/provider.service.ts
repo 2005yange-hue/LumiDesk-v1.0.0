@@ -1,14 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { ModelProvider } from './entities/model-provider.entity'
 import type { CreateProviderDto } from './dto/create-provider.dto'
-
-export interface ProviderTestResult {
-  success: boolean
-  latency: number
-  error?: string
-}
+import type { ProviderTestResult } from './dto/test-connection.dto'
 
 export interface ProviderModelInfo {
   id: string
@@ -26,14 +21,23 @@ export class ProviderService {
 
   /** 创建 API Provider */
   async createProvider(dto: CreateProviderDto): Promise<ModelProvider> {
-    // 禁用其他同用户 provider（只保留一个启用）
     const userId = dto.user_id || 'default'
-    await this.providerRepo.update(
-      { user_id: userId, enabled: true },
-      { enabled: false }
-    )
 
-    const record = this.providerRepo.create({ ...dto, user_id: userId, enabled: true })
+    // 如果设为默认，清除其他默认
+    if (dto.is_default) {
+      await this.providerRepo.update(
+        { user_id: userId, is_default: true },
+        { is_default: false }
+      )
+    }
+
+    // 默认第一个 provider
+    const count = await this.providerRepo.count({ where: { user_id: userId } })
+    const record = this.providerRepo.create({
+      ...dto,
+      user_id: userId,
+      enabled: true
+    })
     const saved = await this.providerRepo.save(record)
     this.logger.log(`Created provider: ${saved.name} (${saved.provider})`)
     return this.maskApiKey(saved)
@@ -41,22 +45,25 @@ export class ProviderService {
 
   /** 更新 Provider */
   async updateProvider(id: number, dto: Partial<CreateProviderDto>): Promise<ModelProvider | null> {
-    // 检测脱敏 Key：包含 **** 表示前端未修改，不更新 api_key
+    // 检测脱敏 Key
     if (dto.api_key && this.isMaskedApiKey(dto.api_key)) {
       this.logger.log(`Detected masked API key, skipping update`)
       delete dto.api_key
     }
 
+    // 如果设为默认，清除其他默认
+    if (dto.is_default) {
+      const existing = await this.providerRepo.findOneBy({ id })
+      if (existing) {
+        await this.providerRepo.update(
+          { user_id: existing.user_id, is_default: true },
+          { is_default: false }
+        )
+      }
+    }
+
     await this.providerRepo.update(id, dto)
     const updated = await this.providerRepo.findOneBy({ id })
-    if (updated && dto.enabled) {
-      // 互斥：只有一个 enabled
-      await this.providerRepo.update(
-        { user_id: updated.user_id, enabled: true, id: undefined as unknown as number },
-        { enabled: false }
-      )
-      await this.providerRepo.update(id, { enabled: true })
-    }
     return updated ? this.maskApiKey(updated) : null
   }
 
@@ -70,7 +77,7 @@ export class ProviderService {
   async getProviders(userId = 'default'): Promise<ModelProvider[]> {
     const providers = await this.providerRepo.find({
       where: { user_id: userId },
-      order: { enabled: 'DESC', created_at: 'DESC' }
+      order: { is_default: 'DESC', enabled: 'DESC', created_at: 'DESC' }
     })
     return providers.map((p) => this.maskApiKey(p))
   }
@@ -93,11 +100,32 @@ export class ProviderService {
   async findProviderById(id: number): Promise<ModelProvider | null> {
     const provider = await this.providerRepo.findOneBy({ id })
     if (provider) {
-      this.logger.log(`[Provider Debug] findProviderById(${id}) → name: ${provider.name}, model: ${provider.model}, base_url: ${provider.base_url}, api_key: ${this.#safeKeyPrefix(provider.api_key)}`)
+      this.logger.log(`[Provider Debug] findProviderById(${id}) → name: ${provider.name}, model: ${provider.model}`)
     } else {
       this.logger.log(`[Provider Debug] findProviderById(${id}) → not found`)
     }
     return provider || null
+  }
+
+  /** 按 ID 查找 Provider，不存在时抛出 NotFoundException */
+  async findProviderByIdOrFail(id: number): Promise<ModelProvider> {
+    const provider = await this.findProviderById(id)
+    if (!provider) {
+      throw new NotFoundException(`模型配置 #${id} 不存在`)
+    }
+    return provider
+  }
+
+  /** 获取用户的默认 Provider */
+  async getDefaultProvider(userId = 'default'): Promise<ModelProvider | null> {
+    const provider = await this.providerRepo.findOneBy({
+      user_id: userId,
+      is_default: true
+    })
+    if (provider) {
+      this.logger.log(`[Provider Debug] getDefaultProvider → name: ${provider.name}`)
+    }
+    return provider ? this.maskApiKey(provider) : null
   }
 
   /** 安全打印 Key 前缀（不暴露完整 Key） */
@@ -134,17 +162,27 @@ export class ProviderService {
 
       const latency = Date.now() - start
       if (res.ok) {
-        return { success: true, latency }
+        return { success: true, latency, model }
       }
       const body = await res.text()
-      return { success: false, latency, error: `HTTP ${res.status}: ${body.substring(0, 200)}` }
+      return { success: false, latency, model, message: `HTTP ${res.status}: ${body.substring(0, 200)}` }
     } catch (error) {
-      return { success: false, latency: Date.now() - start, error: String(error) }
+      return { success: false, latency: Date.now() - start, model, message: String(error) }
     }
   }
 
   /**
+   * 通过 provider ID 获取模型列表
+   * 从数据库读取 api_key 和 base_url，调用 OpenAI Compatible API
+   */
+  async listModelsByProviderId(id: number): Promise<ProviderModelInfo[]> {
+    const provider = await this.findProviderByIdOrFail(id)
+    return this.listModels(provider.base_url, provider.api_key)
+  }
+
+  /**
    * 获取 API 的可用模型列表
+   * 支持 OpenAI / DeepSeek / OpenRouter 等兼容 API
    */
   async listModels(
     baseUrl: string,

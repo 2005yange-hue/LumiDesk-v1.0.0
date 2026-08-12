@@ -1,19 +1,22 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import type {
   ProviderInfo,
   CreateProviderData,
   TestConnectionResult,
-  ModelInfo
+  ModelInfo,
+  ProviderConnectionStatus
 } from '@/types/provider.types'
 import {
   getProviders,
   getActiveProvider,
+  getDefaultProvider,
   createProvider as createProviderApi,
   updateProvider as updateProviderApi,
   deleteProvider as deleteProviderApi,
   testConnection as testConnectionApi,
-  fetchModels as fetchModelsApi
+  fetchModels as fetchModelsApi,
+  getProviderModels
 } from '@/services/provider.api'
 
 const STORAGE_KEY = 'ai-companion-provider'
@@ -29,6 +32,8 @@ export const useProviderStore = defineStore('provider', () => {
   const loading = ref(false)
   const testResult = ref<TestConnectionResult | null>(null)
   const modelList = ref<ModelInfo[]>([])
+  /** 各 Provider 连接状态缓存 */
+  const connectionStatus = reactive<Record<number, ProviderConnectionStatus>>({})
 
   // ──── 持久化活跃 Provider ID ────
   function loadActiveId(): number | null {
@@ -49,6 +54,11 @@ export const useProviderStore = defineStore('provider', () => {
   const activeProvider = (): ProviderInfo | null => {
     if (!activeProviderId.value) return null
     return providers.value.find((p) => p.id === activeProviderId.value) || null
+  }
+
+  // ──── 获取指定 Provider 的连接状态 ────
+  function getConnectionStatus(providerId: number): ProviderConnectionStatus | undefined {
+    return connectionStatus[providerId]
   }
 
   // ──── 加载 Provider 列表 ────
@@ -113,7 +123,7 @@ export const useProviderStore = defineStore('provider', () => {
     await fetchProviders()
   }
 
-  // ──── 测试连接 ────
+  // ──── 测试 Provider 连接（通过 ID，从对话框表单） ────
   async function testConnection(
     baseUrl: string,
     apiKey: string,
@@ -125,13 +135,29 @@ export const useProviderStore = defineStore('provider', () => {
       testResult.value = result
       return result
     } catch (error) {
-      const err = { success: false, latency: 0, error: String(error) }
+      const err = { success: false, latency: 0, model, message: String(error) }
       testResult.value = err
       return err
     }
   }
 
-  // ──── 获取模型列表 ────
+  // ──── 测试已有 Provider 的连接状态 ────
+  async function testProviderConnection(providerId: number): Promise<void> {
+    const provider = providers.value.find((p) => p.id === providerId)
+    if (!provider) return
+
+    // NOTE: 前端不持有完整 api_key（脱敏），因此无法直接测试
+    // 此处标记为需要后端支持，或记录状态
+    connectionStatus[providerId] = {
+      providerId,
+      tested: false,
+      success: false,
+      latency: 0,
+      message: '需要后端支持完整 API Key 测试'
+    }
+  }
+
+  // ──── 获取模型列表（新建对话框用） ────
   async function fetchModelList(baseUrl: string, apiKey: string): Promise<ModelInfo[]> {
     modelList.value = []
     try {
@@ -143,7 +169,19 @@ export const useProviderStore = defineStore('provider', () => {
     }
   }
 
-  /** 刷新 Provider 状态（聊天的页面切换时调用） */
+  // ──── 通过 Provider ID 获取模型列表 ────
+  async function fetchModelsByProviderId(providerId: number): Promise<ModelInfo[]> {
+    modelList.value = []
+    try {
+      const result = await getProviderModels(providerId)
+      modelList.value = result
+      return result
+    } catch {
+      return []
+    }
+  }
+
+  /** 刷新 Provider 状态（聊天页面切换时调用） */
   async function refreshActive(): Promise<void> {
     try {
       const active = await getActiveProvider()
@@ -164,14 +202,18 @@ export const useProviderStore = defineStore('provider', () => {
     loading,
     testResult,
     modelList,
+    connectionStatus,
     activeProvider,
+    getConnectionStatus,
     fetchProviders,
     createProvider,
     updateProvider,
     removeProvider,
     setActive,
     testConnection,
+    testProviderConnection,
     fetchModelList,
+    fetchModelsByProviderId,
     refreshActive,
     saveActiveId
   }

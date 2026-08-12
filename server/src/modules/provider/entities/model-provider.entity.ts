@@ -33,6 +33,10 @@ export class ModelProvider {
   @Column({ type: 'boolean', default: true })
   enabled: boolean
 
+  /** 是否为默认 Provider（每个用户仅一个） */
+  @Column({ type: 'boolean', default: false })
+  is_default: boolean
+
   @CreateDateColumn()
   created_at: Date
 

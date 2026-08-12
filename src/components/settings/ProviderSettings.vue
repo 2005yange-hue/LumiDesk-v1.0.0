@@ -22,11 +22,32 @@
       >
         <div class="provider-status">
           <span :class="['dot', p.enabled ? 'on' : 'off']" />
-          <span class="provider-name">{{ p.name }}</span>
+          <span class="provider-name">
+            {{ p.is_default ? '⭐ ' : '' }}{{ p.name }}
+          </span>
         </div>
         <div class="provider-meta">
           <span class="model-tag">{{ p.model }}</span>
           <span class="url-hint">{{ formatUrl(p.base_url) }}</span>
+        </div>
+        <!-- 连接状态 & 测试按钮 -->
+        <div class="provider-extra">
+          <div v-if="getStatus(p.id)?.tested" class="conn-status">
+            <span :class="['conn-dot', getStatus(p.id)!.success ? 'on' : 'off']" />
+            <span class="conn-text">
+              {{ getStatus(p.id)!.success ? `${getStatus(p.id)!.latency}ms` : '失败' }}
+            </span>
+          </div>
+          <el-button
+            size="small"
+            text
+            type="primary"
+            :loading="testingId === p.id"
+            @click.stop="handleTestProvider(p)"
+            class="test-btn"
+          >
+            测试
+          </el-button>
         </div>
       </div>
     </div>
@@ -34,7 +55,9 @@
     <!-- 右侧：配置详情 -->
     <div class="provider-detail-panel" v-if="selected">
       <div class="detail-header">
-        <h3>{{ selected.name }}</h3>
+        <h3>
+          {{ selected.is_default ? '⭐ ' : '' }}{{ selected.name }}
+        </h3>
         <div class="detail-actions">
           <el-button size="small" @click="openEdit">编辑</el-button>
           <el-button
@@ -44,6 +67,14 @@
             @click="handleSetActive"
           >
             {{ selected.enabled ? '当前默认' : '设为默认' }}
+          </el-button>
+          <el-button
+            v-if="!selected.is_default"
+            size="small"
+            type="warning"
+            @click="handleSetDefault"
+          >
+            设为默认
           </el-button>
           <el-popconfirm title="确定删除此配置？" @confirm="handleDelete">
             <template #reference>
@@ -76,6 +107,40 @@
             {{ selected.enabled ? '已启用' : '未启用' }}
           </span>
         </div>
+        <!-- 连接状态详情 -->
+        <div class="detail-row" v-if="getStatus(selected.id)?.tested">
+          <span class="label">连接</span>
+          <span :class="['value', getStatus(selected.id)!.success ? 'on' : 'off']">
+            {{ getStatus(selected.id)!.success ? `✓ ${getStatus(selected.id)!.latency}ms` : `✗ ${getStatus(selected.id)!.message || '连接失败'}` }}
+          </span>
+        </div>
+        <!-- 测试连接按钮 -->
+        <div class="detail-test">
+          <el-button
+            size="small"
+            :loading="testingId === selected.id"
+            @click="handleTestProvider(selected)"
+          >
+            测试连接
+          </el-button>
+        </div>
+        <!-- 获取模型列表 -->
+        <div class="detail-models">
+          <el-button
+            size="small"
+            text
+            type="primary"
+            :loading="loadingModels"
+            @click="handleFetchModels"
+          >
+            获取模型列表
+          </el-button>
+        </div>
+        <div v-if="detailModelList.length > 0" class="model-list">
+          <div v-for="m in detailModelList" :key="m.id" class="model-item">
+            <el-tag size="small" type="info">{{ m.id }}</el-tag>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -103,6 +168,9 @@ const store = useProviderStore()
 const dialogVisible = ref(false)
 const editTarget = ref<ProviderInfo | null>(null)
 const selected = ref<ProviderInfo | null>(null)
+const testingId = ref<number | null>(null)
+const loadingModels = ref(false)
+const detailModelList = ref<Array<{ id: string; owned_by: string }>>([])
 
 onMounted(() => {
   store.fetchProviders().then(() => {
@@ -114,6 +182,7 @@ onMounted(() => {
 
 function selectProvider(p: ProviderInfo): void {
   selected.value = p
+  detailModelList.value = []
 }
 
 function openCreate(): void {
@@ -132,10 +201,20 @@ function onSaved(): void {
   }
 }
 
+function getStatus(id: number) {
+  return store.getConnectionStatus(id)
+}
+
 async function handleSetActive(): Promise<void> {
   if (!selected.value || selected.value.enabled) return
   await store.setActive(selected.value.id)
   ElMessage.success(`已将「${selected.value.name}」设为默认`)
+}
+
+async function handleSetDefault(): Promise<void> {
+  if (!selected.value) return
+  await store.updateProvider(selected.value.id, { is_default: true })
+  ElMessage.success(`已将「${selected.value.name}」设为默认连接`)
 }
 
 async function handleDelete(): Promise<void> {
@@ -144,6 +223,40 @@ async function handleDelete(): Promise<void> {
   if (ok) {
     ElMessage.success('已删除')
     selected.value = store.providers.length > 0 ? store.providers[0] : null
+  }
+}
+
+async function handleTestProvider(p: ProviderInfo): Promise<void> {
+  testingId.value = p.id
+  await store.testProviderConnection(p.id)
+  const status = store.getConnectionStatus(p.id)
+  if (status?.tested) {
+    if (status.success) {
+      ElMessage.success(`连接成功! 延迟: ${status.latency}ms`)
+    } else {
+      ElMessage.warning(`连接失败: ${status.message || '未知错误'}`)
+    }
+  } else {
+    ElMessage.info('需要后端支持自动测试已有 Provider')
+  }
+  testingId.value = null
+}
+
+async function handleFetchModels(): Promise<void> {
+  if (!selected.value) return
+  loadingModels.value = true
+  try {
+    const models = await store.fetchModelsByProviderId(selected.value.id)
+    detailModelList.value = models
+    if (models.length > 0) {
+      ElMessage.success(`获取到 ${models.length} 个模型`)
+    } else {
+      ElMessage.info('未获取到模型列表')
+    }
+  } catch {
+    ElMessage.error('获取模型列表失败')
+  } finally {
+    loadingModels.value = false
   }
 }
 
@@ -249,6 +362,40 @@ function formatUrl(url: string): string {
       text-overflow: ellipsis;
     }
   }
+
+  .provider-extra {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-left: 16px;
+    margin-top: 4px;
+
+    .conn-status {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      .conn-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+
+        &.on { background: var(--color-success); }
+        &.off { background: var(--color-danger); }
+      }
+
+      .conn-text {
+        font-size: 11px;
+        color: var(--text-tertiary);
+      }
+    }
+
+    .test-btn {
+      font-size: 11px;
+      padding: 0 4px;
+    }
+  }
 }
 
 // ── 右侧详情 ──
@@ -281,6 +428,8 @@ function formatUrl(url: string): string {
     .detail-actions {
       display: flex;
       gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
     }
   }
 
@@ -317,6 +466,24 @@ function formatUrl(url: string): string {
 
       &.on { color: var(--color-success); font-weight: 500; }
       &.off { color: var(--color-danger); }
+    }
+  }
+
+  .detail-test {
+    padding-top: 4px;
+  }
+
+  .detail-models {
+    padding-top: 4px;
+  }
+
+  .model-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+
+    .model-item {
+      cursor: pointer;
     }
   }
 }

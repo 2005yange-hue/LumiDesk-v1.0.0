@@ -23,6 +23,19 @@ export class ProviderController {
     return provider ? this.providerService.maskApiKey(provider) : null
   }
 
+  /** 获取默认 Provider */
+  @Get('default')
+  async getDefaultProvider() {
+    return this.providerService.getDefaultProvider()
+  }
+
+  /** 获取指定 Provider 的模型列表（通过 ID） */
+  @Get(':id/models')
+  async getModelsByProviderId(@Param('id') id: string) {
+    this.logger.log(`Fetching models for provider id=${id}`)
+    return this.providerService.listModelsByProviderId(Number(id))
+  }
+
   /** 创建 Provider */
   @Post()
   async createProvider(@Body() dto: CreateProviderDto) {
@@ -53,7 +66,7 @@ export class ProviderController {
   }
 
   /**
-   * 获取 API 模型列表
+   * 获取 API 模型列表（传入 base_url + api_key）
    * POST /api/provider/models
    */
   @Post('models')

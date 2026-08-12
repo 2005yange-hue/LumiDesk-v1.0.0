@@ -8,6 +8,7 @@ export interface ProviderInfo {
   api_key: string
   model: string
   enabled: boolean
+  is_default: boolean
   created_at: string
   updated_at: string
 }
@@ -20,13 +21,24 @@ export interface CreateProviderData {
   api_key: string
   model: string
   enabled?: boolean
+  is_default?: boolean
 }
 
 /** 连接测试结果 */
 export interface TestConnectionResult {
   success: boolean
   latency: number
-  error?: string
+  model: string
+  message?: string
+}
+
+/** 每个 Provider 的连接状态缓存 */
+export interface ProviderConnectionStatus {
+  providerId: number
+  tested: boolean
+  success: boolean
+  latency: number
+  message?: string
 }
 
 /** API 模型信息 */

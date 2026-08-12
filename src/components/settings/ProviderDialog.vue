@@ -66,8 +66,12 @@
           测试连接
         </el-button>
         <span v-if="testResult" :class="['test-result', testResult.success ? 'success' : 'fail']">
-          {{ testResult.success ? `✓ 连接成功 (${testResult.latency}ms)` : `✗ ${testResult.error}` }}
+          {{ testResult.success ? `✓ 连接成功 (${testResult.latency}ms)` : `✗ ${testResult.message}` }}
         </span>
+      </el-form-item>
+
+      <el-form-item label="设为默认">
+        <el-checkbox v-model="form.is_default">将此 Provider 设为默认连接</el-checkbox>
       </el-form-item>
     </el-form>
 
@@ -106,7 +110,7 @@ const isEdit = ref(false)
 const saving = ref(false)
 const testing = ref(false)
 const fetchingModels = ref(false)
-const testResult = ref<{ success: boolean; latency: number; error?: string } | null>(null)
+const testResult = ref<{ success: boolean; latency: number; model: string; message?: string } | null>(null)
 const modelList = ref<Array<{ id: string; owned_by: string }>>([])
 
 const form = reactive({
@@ -114,7 +118,8 @@ const form = reactive({
   provider: 'openai-compatible',
   base_url: '',
   api_key: '',
-  model: ''
+  model: '',
+  is_default: false
 })
 
 // 编辑时填充表单
@@ -125,6 +130,7 @@ watch(() => props.editProvider, (provider) => {
     form.provider = provider.provider
     form.base_url = provider.base_url
     form.model = provider.model
+    form.is_default = provider.is_default
     form.api_key = '' // 不预填 API Key（安全）
   } else {
     isEdit.value = false
@@ -160,11 +166,12 @@ async function handleSave(): Promise<void> {
   saving.value = true
   try {
     if (isEdit.value && props.editProvider) {
-      const updateData: Record<string, string> = {
+      const updateData: Record<string, string | boolean> = {
         name: form.name,
         provider: form.provider,
         base_url: form.base_url,
-        model: form.model
+        model: form.model,
+        is_default: form.is_default
       }
       // 只有输入了新 Key 才更新
       if (form.api_key) {
@@ -177,7 +184,8 @@ async function handleSave(): Promise<void> {
         provider: form.provider,
         base_url: form.base_url,
         api_key: form.api_key,
-        model: form.model
+        model: form.model,
+        is_default: form.is_default
       })
     }
     visible.value = false
@@ -193,6 +201,7 @@ function resetForm(): void {
   form.base_url = ''
   form.api_key = ''
   form.model = ''
+  form.is_default = false
   testResult.value = null
   modelList.value = []
 }
@@ -223,7 +232,7 @@ function resetForm(): void {
   margin-left: 12px;
   font-size: 13px;
 
-  &.success { color: #67c23a; }
-  &.fail { color: #f56c6c; }
+  &.success { color: var(--color-success); }
+  &.fail { color: var(--color-danger); }
 }
 </style>

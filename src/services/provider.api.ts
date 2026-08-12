@@ -20,6 +20,18 @@ export async function getActiveProvider(): Promise<ProviderInfo | null> {
   return data.data
 }
 
+/** 获取默认 Provider */
+export async function getDefaultProvider(): Promise<ProviderInfo | null> {
+  const { data } = await axios.get(`${BASE}/default`)
+  return data.data
+}
+
+/** 通过 Provider ID 获取模型列表 */
+export async function getProviderModels(id: number): Promise<ModelInfo[]> {
+  const { data } = await axios.get(`${BASE}/${id}/models`)
+  return data.data
+}
+
 /** 创建 Provider */
 export async function createProvider(dto: CreateProviderData): Promise<ProviderInfo> {
   const { data } = await axios.post(BASE, dto)
@@ -48,10 +60,10 @@ export async function testConnection(
     api_key: apiKey,
     model
   })
-  return data
+  return data.data
 }
 
-/** 获取 API 模型列表 */
+/** 获取 API 模型列表（传入 base_url + api_key） */
 export async function fetchModels(
   baseUrl: string,
   apiKey: string
@@ -60,5 +72,5 @@ export async function fetchModels(
     base_url: baseUrl,
     api_key: apiKey
   })
-  return data
+  return data.data
 }

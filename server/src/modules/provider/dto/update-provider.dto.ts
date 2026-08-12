@@ -29,4 +29,8 @@ export class UpdateProviderDto {
   @IsOptional()
   @IsBoolean()
   enabled?: boolean
+
+  @IsOptional()
+  @IsBoolean()
+  is_default?: boolean
 }
