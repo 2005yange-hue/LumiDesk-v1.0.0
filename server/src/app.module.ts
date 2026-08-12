@@ -8,6 +8,7 @@ import { ChatModule } from './modules/chat/chat.module'
 import { CharacterModule } from './modules/character/character.module'
 import { MemoryModule } from './modules/memory/memory.module'
 import { VectorMemoryModule } from './modules/vector-memory/vector-memory.module'
+import { ProviderModule } from './modules/provider/provider.module'
 
 @Module({
   imports: [
@@ -34,7 +35,8 @@ import { VectorMemoryModule } from './modules/vector-memory/vector-memory.module
     ChatModule,
     CharacterModule,
     MemoryModule,
-    VectorMemoryModule
+    VectorMemoryModule,
+    ProviderModule
   ],
   controllers: [AppController],
   providers: [AppService]
