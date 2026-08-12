@@ -15,9 +15,6 @@
         <el-tab-pane label="API 连接" name="provider">
           <ProviderSettings />
         </el-tab-pane>
-        <el-tab-pane label="模型配置" name="model">
-          <ModelSettings />
-        </el-tab-pane>
         <el-tab-pane label="角色设置" name="character">
           <CharacterSettings />
         </el-tab-pane>
@@ -32,7 +29,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import ModelSettings from '@/components/settings/ModelSettings.vue'
 import CharacterSettings from '@/components/settings/CharacterSettings.vue'
 import AboutSection from '@/components/settings/AboutSection.vue'
 import ProviderSettings from '@/components/settings/ProviderSettings.vue'
