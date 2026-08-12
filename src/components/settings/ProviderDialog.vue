@@ -59,9 +59,7 @@
       <el-form-item label="模型参数" />
 
       <el-form-item label="Temperature" label-width="100px">
-        <div class="param-row">
-          <el-slider v-model="form.temperature" :min="0" :max="2" :step="0.1" show-input />
-        </div>
+        <el-input-number v-model="form.temperature" :min="0" :max="2" :step="0.1" :precision="1" controls-position="right" />
       </el-form-item>
 
       <el-form-item label="Max Tokens" label-width="100px">
@@ -69,9 +67,7 @@
       </el-form-item>
 
       <el-form-item label="Top-P" label-width="100px">
-        <div class="param-row">
-          <el-slider v-model="form.top_p" :min="0" :max="1" :step="0.05" show-input />
-        </div>
+        <el-input-number v-model="form.top_p" :min="0" :max="1" :step="0.05" :precision="2" controls-position="right" />
       </el-form-item>
 
       <el-form-item label="连接测试">
