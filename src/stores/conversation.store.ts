@@ -32,36 +32,72 @@ export const useConversationStore = defineStore('conversation', () => {
     }
   }
 
+  // ──── 调和当前会话选择 ────
+  // 规则：
+  // 1. 无任何会话 → currentConversationId 置空
+  // 2. localStorage 保存的会话仍存在 → 保持
+  // 3. 无保存或保存的会话已失效 → 选择 updated_at 最新的一条
+  //    （后端 listConversations 已按 updated_at DESC 排序，list[0] 即最新）
+  function reconcileSelection(): void {
+    const list = conversationList.value
+    if (list.length === 0) {
+      saveCurrentId(null)
+      return
+    }
+    const saved = currentConversationId.value
+    const exists = saved ? list.some((c) => c.id === saved) : false
+    if (!exists) {
+      saveCurrentId(list[0].id)
+    }
+  }
+
   // ──── 加载会话列表（含当前会话状态调和） ────
   async function fetchList(): Promise<void> {
     loading.value = true
     try {
-      conversationList.value = await getConversations()
-
-      // 当前会话状态恢复：
-      // - 保存的会话仍存在 → 保持
-      // - 保存的会话已不存在 → 清除并自动选择最近会话（无会话则不自动创建）
-      if (currentConversationId.value) {
-        const exists = conversationList.value.some(
-          (c) => c.id === currentConversationId.value
-        )
-        if (!exists) {
-          if (conversationList.value.length > 0) {
-            saveCurrentId(conversationList.value[0].id)
-          } else {
-            saveCurrentId(null)
+      let data: ConversationInfo[] | null = null
+      let lastError: unknown = null
+      // 启动阶段后端可能尚未就绪，做有界重试，避免首次加载失败后列表永远为空
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          data = await getConversations()
+          break
+        } catch (err) {
+          lastError = err
+          if (attempt < 3) {
+            await new Promise((resolve) => setTimeout(resolve, 500 * attempt))
           }
         }
       }
-    } catch {
-      conversationList.value = []
+      if (data === null) throw lastError
+
+      console.log('[Conversation] fetchList result', data)
+      conversationList.value = data
+      reconcileSelection()
+    } catch (err) {
+      console.error('[Conversation] fetchList error', err)
+      // 失败时保留已有列表，避免启动失败后误清空已加载数据
     } finally {
       loading.value = false
     }
   }
 
+  // ──── 启动初始化：App 启动时自动调用一次 fetchList ────
+  let initPromise: Promise<void> | null = null
+  async function init(): Promise<void> {
+    if (!initPromise) {
+      console.log('[Conversation] init', {
+        currentId: currentConversationId.value,
+        conversations: conversationList.value
+      })
+      initPromise = fetchList()
+    }
+    return initPromise
+  }
+
   // ──── 创建会话 ────
   async function create(title?: string): Promise<ConversationInfo | null> {
+    console.log('[Conversation] create')
     try {
       const conv = await createConversation(title ? { title } : {})
       await fetchList()
@@ -130,6 +166,7 @@ export const useConversationStore = defineStore('conversation', () => {
     loading,
     messagesLoading,
     fetchList,
+    init,
     create,
     remove,
     updateTitle,

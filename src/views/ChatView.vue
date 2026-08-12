@@ -145,20 +145,21 @@ const activeModelName = computed(() => {
 })
 
 onMounted(async () => {
+  console.log('[ChatView] mounted')
+  // 优先初始化会话列表（main.ts 已触发 conversationStore.init()，此处等待其完成）
+  await conversationStore.init()
+  if (conversationStore.currentConversationId) {
+    await store.loadConversation(conversationStore.currentConversationId)
+  }
+  // Provider / 角色资源异步加载，不阻塞会话列表展示
   await providerStore.refreshActive()
   if (providerStore.activeProviderId) {
     selectedProviderId.value = providerStore.activeProviderId
   }
-  // 加载角色列表（用于空状态展示当前角色名）
   try {
     characters.value = await getCharacters()
   } catch {
     characters.value = []
-  }
-  // 加载会话列表，并恢复当前会话
-  await conversationStore.fetchList()
-  if (conversationStore.currentConversationId) {
-    await store.loadConversation(conversationStore.currentConversationId)
   }
 })
 

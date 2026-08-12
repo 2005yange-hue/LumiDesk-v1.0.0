@@ -265,6 +265,9 @@
 ### 数据库变化
 - `conversations` 表新增 `message_count` 列（INT, DEFAULT 0）
 
+### 修复（Bug 自检）
+- **会话列表启动不显示 / 新建后才延迟出现**：`conversationStore` 原先仅在 `ChatView.onMounted` 的异步链中调用 `fetchList()`，且失败时静默清空列表、无重试；同时当 `localStorage` 无保存的当前会话 ID 时不会自动选中。现改为在 `main.ts` 应用启动时调用 `conversationStore.init()` 自动加载，`fetchList()` 增加有界重试与错误日志，并新增 `reconcileSelection()` 统一调和当前会话（无保存/失效 → 选 `updated_at` 最新一条；无会话 → 置空）。
+
 ---
 
 ## 后续版本规划
