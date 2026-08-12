@@ -54,16 +54,16 @@ export class PromptContextService {
       messages.push({ role: 'system', content: system })
     }
 
-    // 2. 长期记忆（语义检索 + MySQL 回退）
-    const memories = await this.loadMemories(userMessage)
-    if (memories) {
-      messages.push({ role: 'system', content: memories })
-    }
-
-    // 3. 角色人格
+    // 2. 角色人格（优先于记忆，避免 memory 修改角色设定）
     const persona = this.buildCharacterPrompt(characterId)
     if (persona) {
       messages.push({ role: 'system', content: persona })
+    }
+
+    // 3. 长期记忆（语义检索 + MySQL 回退）
+    const memories = await this.loadMemories(userMessage)
+    if (memories) {
+      messages.push({ role: 'system', content: memories })
     }
 
     // 4. 历史对话（最近 N 条）
@@ -74,6 +74,8 @@ export class PromptContextService {
 
     // 5. 当前用户消息
     messages.push({ role: 'user', content: userMessage })
+
+    this.logger.log('[Context] messages order: system -> character -> memory -> history -> user')
 
     return messages
   }
