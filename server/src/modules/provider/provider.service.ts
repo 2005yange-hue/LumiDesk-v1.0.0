@@ -2,16 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { ModelProvider } from './entities/model-provider.entity'
-
-export interface CreateProviderDto {
-  user_id?: string
-  name: string
-  provider: string
-  base_url: string
-  api_key: string
-  model: string
-  enabled?: boolean
-}
+import type { CreateProviderDto } from './dto/create-provider.dto'
 
 export interface ProviderTestResult {
   success: boolean
@@ -50,6 +41,12 @@ export class ProviderService {
 
   /** 更新 Provider */
   async updateProvider(id: number, dto: Partial<CreateProviderDto>): Promise<ModelProvider | null> {
+    // 检测脱敏 Key：包含 **** 表示前端未修改，不更新 api_key
+    if (dto.api_key && this.isMaskedApiKey(dto.api_key)) {
+      this.logger.log(`Detected masked API key, skipping update`)
+      delete dto.api_key
+    }
+
     await this.providerRepo.update(id, dto)
     const updated = await this.providerRepo.findOneBy({ id })
     if (updated && dto.enabled) {
@@ -156,11 +153,20 @@ export class ProviderService {
 
   /**
    * 脱敏 API Key（仅保留前3后4位）
+   * 返回新对象，不修改原实体
    */
-  private maskApiKey(provider: ModelProvider): ModelProvider {
-    if (provider.api_key && provider.api_key.length > 10) {
-      provider.api_key = provider.api_key.substring(0, 3) + '****' + provider.api_key.slice(-4)
+  maskApiKey(provider: ModelProvider): ModelProvider {
+    const copy = { ...provider }
+    if (copy.api_key && copy.api_key.length > 10) {
+      copy.api_key = copy.api_key.substring(0, 3) + '****' + copy.api_key.slice(-4)
     }
-    return provider
+    return copy
+  }
+
+  /**
+   * 检测是否为脱敏后的 Key（包含 ****）
+   */
+  private isMaskedApiKey(key: string): boolean {
+    return key.includes('****')
   }
 }

@@ -1,5 +1,8 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Logger } from '@nestjs/common'
-import { ProviderService, CreateProviderDto } from './provider.service'
+import { ProviderService } from './provider.service'
+import { CreateProviderDto } from './dto/create-provider.dto'
+import { UpdateProviderDto } from './dto/update-provider.dto'
+import { TestConnectionDto, FetchModelsDto } from './dto/test-connection.dto'
 
 @Controller('provider')
 export class ProviderController {
@@ -13,10 +16,11 @@ export class ProviderController {
     return this.providerService.getProviders()
   }
 
-  /** 获取当前启用的 Provider */
+  /** 获取当前启用的 Provider（返回脱敏 Key） */
   @Get('active')
   async getActiveProvider() {
-    return this.providerService.getActiveProvider() || null
+    const provider = await this.providerService.getActiveProvider()
+    return provider ? this.providerService.maskApiKey(provider) : null
   }
 
   /** 创建 Provider */
@@ -27,7 +31,7 @@ export class ProviderController {
 
   /** 更新 Provider */
   @Put(':id')
-  async updateProvider(@Param('id') id: string, @Body() dto: Partial<CreateProviderDto>) {
+  async updateProvider(@Param('id') id: string, @Body() dto: UpdateProviderDto) {
     return this.providerService.updateProvider(Number(id), dto)
   }
 
@@ -43,9 +47,9 @@ export class ProviderController {
    * POST /api/provider/test
    */
   @Post('test')
-  async testConnection(@Body() body: { base_url: string; api_key: string; model: string }) {
-    this.logger.log(`Testing connection to: ${body.base_url}`)
-    return this.providerService.testConnection(body.base_url, body.api_key, body.model)
+  async testConnection(@Body() dto: TestConnectionDto) {
+    this.logger.log(`Testing connection to: ${dto.base_url}`)
+    return this.providerService.testConnection(dto.base_url, dto.api_key, dto.model)
   }
 
   /**
@@ -53,8 +57,8 @@ export class ProviderController {
    * POST /api/provider/models
    */
   @Post('models')
-  async getModels(@Body() body: { base_url: string; api_key: string }) {
-    this.logger.log(`Fetching models from: ${body.base_url}`)
-    return this.providerService.listModels(body.base_url, body.api_key)
+  async getModels(@Body() dto: FetchModelsDto) {
+    this.logger.log(`Fetching models from: ${dto.base_url}`)
+    return this.providerService.listModels(dto.base_url, dto.api_key)
   }
 }
