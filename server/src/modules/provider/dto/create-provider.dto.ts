@@ -13,6 +13,11 @@ export class CreateProviderDto {
   @MaxLength(32)
   provider: string
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  provider_type?: string
+
   @IsString()
   @MaxLength(512)
   base_url: string

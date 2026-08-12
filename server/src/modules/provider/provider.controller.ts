@@ -23,10 +23,11 @@ export class ProviderController {
     return provider ? this.providerService.maskApiKey(provider) : null
   }
 
-  /** 获取默认 Provider */
+  /** 获取默认 Provider（返回脱敏 Key） */
   @Get('default')
   async getDefaultProvider() {
-    return this.providerService.getDefaultProvider()
+    const provider = await this.providerService.getDefaultProvider()
+    return provider ? this.providerService.maskApiKey(provider) : null
   }
 
   /** 获取指定 Provider 的模型列表（通过 ID） */

@@ -116,16 +116,18 @@ export class ProviderService {
     return provider
   }
 
-  /** 获取用户的默认 Provider */
+  /** 获取用户的默认 Provider（不脱敏，供内部调用） */
   async getDefaultProvider(userId = 'default'): Promise<ModelProvider | null> {
     const provider = await this.providerRepo.findOneBy({
       user_id: userId,
       is_default: true
     })
     if (provider) {
-      this.logger.log(`[Provider Debug] getDefaultProvider → name: ${provider.name}`)
+      this.logger.log(`[Provider Debug] getDefaultProvider → name: ${provider.name}, model: ${provider.model}, api_key: ${this.#safeKeyPrefix(provider.api_key)}`)
+    } else {
+      this.logger.log(`[Provider Debug] getDefaultProvider → no default provider`)
     }
-    return provider ? this.maskApiKey(provider) : null
+    return provider || null
   }
 
   /** 安全打印 Key 前缀（不暴露完整 Key） */

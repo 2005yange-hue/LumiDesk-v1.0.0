@@ -86,7 +86,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
-import { PROVIDER_PRESETS } from '@/types/provider.types'
+import { PROVIDER_PRESETS, PROVIDER_TYPE_LABELS } from '@/types/provider.types'
 import { useProviderStore } from '@/stores/provider.store'
 import type { ProviderInfo } from '@/types/provider.types'
 
@@ -116,6 +116,7 @@ const modelList = ref<Array<{ id: string; owned_by: string }>>([])
 const form = reactive({
   name: '',
   provider: 'openai-compatible',
+  provider_type: 'openai-compatible',
   base_url: '',
   api_key: '',
   model: '',
@@ -128,6 +129,7 @@ watch(() => props.editProvider, (provider) => {
     isEdit.value = true
     form.name = provider.name
     form.provider = provider.provider
+    form.provider_type = provider.provider_type || provider.provider
     form.base_url = provider.base_url
     form.model = provider.model
     form.is_default = provider.is_default
@@ -141,6 +143,7 @@ watch(() => props.editProvider, (provider) => {
 function onProviderChange(provider: string): void {
   const preset = PROVIDER_PRESETS.find((p) => p.provider === provider)
   if (preset) {
+    form.provider_type = preset.providerType
     form.base_url = preset.baseUrl
     if (preset.defaultModel) form.model = preset.defaultModel
   }
@@ -169,6 +172,7 @@ async function handleSave(): Promise<void> {
       const updateData: Record<string, string | boolean> = {
         name: form.name,
         provider: form.provider,
+        provider_type: form.provider_type,
         base_url: form.base_url,
         model: form.model,
         is_default: form.is_default
@@ -182,6 +186,7 @@ async function handleSave(): Promise<void> {
       await store.createProvider({
         name: form.name,
         provider: form.provider,
+        provider_type: form.provider_type,
         base_url: form.base_url,
         api_key: form.api_key,
         model: form.model,
@@ -198,6 +203,7 @@ async function handleSave(): Promise<void> {
 function resetForm(): void {
   form.name = ''
   form.provider = 'openai-compatible'
+  form.provider_type = 'openai-compatible'
   form.base_url = ''
   form.api_key = ''
   form.model = ''

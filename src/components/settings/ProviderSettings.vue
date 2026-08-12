@@ -27,6 +27,7 @@
           </span>
         </div>
         <div class="provider-meta">
+          <span class="type-badge">{{ typeLabel(p) }}</span>
           <span class="model-tag">{{ p.model }}</span>
           <span class="url-hint">{{ formatUrl(p.base_url) }}</span>
         </div>
@@ -88,6 +89,12 @@
         <div class="detail-row">
           <span class="label">服务商</span>
           <span class="value">{{ selected.provider }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">类型</span>
+          <span class="value">
+            <el-tag size="small" type="info">{{ typeLabel(selected) }}</el-tag>
+          </span>
         </div>
         <div class="detail-row">
           <span class="label">API 地址</span>
@@ -163,8 +170,13 @@ import { useProviderStore } from '@/stores/provider.store'
 import ProviderDialog from './ProviderDialog.vue'
 import { ElMessage } from 'element-plus'
 import type { ProviderInfo } from '@/types/provider.types'
+import { PROVIDER_TYPE_LABELS } from '@/types/provider.types'
 
 const store = useProviderStore()
+
+function typeLabel(p: ProviderInfo): string {
+  return PROVIDER_TYPE_LABELS[p.provider_type] || p.provider_type || p.provider
+}
 const dialogVisible = ref(false)
 const editTarget = ref<ProviderInfo | null>(null)
 const selected = ref<ProviderInfo | null>(null)
@@ -348,6 +360,18 @@ function formatUrl(url: string): string {
     flex-direction: column;
     gap: 2px;
     padding-left: 16px;
+
+    .type-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--color-primary);
+      background: var(--bg-hover);
+      padding: 0 6px;
+      border-radius: 3px;
+      width: fit-content;
+      margin-bottom: 2px;
+    }
 
     .model-tag {
       font-size: 12px;

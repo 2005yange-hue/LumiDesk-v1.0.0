@@ -1,5 +1,18 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm'
 
+/**
+ * API Provider 类型枚举
+ * 定义不同 API 的协议族，决定调用方式
+ */
+export enum ProviderType {
+  OPENAI = 'openai',
+  OPENAI_COMPATIBLE = 'openai-compatible',
+  DEEPSEEK = 'deepseek',
+  GEMINI = 'gemini',
+  CLAUDE = 'claude',
+  OPENROUTER = 'openrouter'
+}
+
 @Entity('model_providers')
 export class ModelProvider {
   @PrimaryGeneratedColumn()
@@ -13,9 +26,17 @@ export class ModelProvider {
   @Column({ type: 'varchar', length: 64 })
   name: string
 
-  /** 提供商类型: openai-compatible | deepseek | siliconflow | google */
+  /** 预设标识，如 deepseek / siliconflow / openrouter */
   @Column({ type: 'varchar', length: 32 })
   provider: string
+
+  /**
+   * API 协议类型
+   * openai | openai-compatible | deepseek | gemini | claude | openrouter
+   * 所有类型统一使用 OpenAI Compatible 接口调用
+   */
+  @Column({ type: 'varchar', length: 32, default: 'openai-compatible' })
+  provider_type: string
 
   /** API 地址 */
   @Column({ type: 'varchar', length: 512 })

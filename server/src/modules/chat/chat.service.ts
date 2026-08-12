@@ -74,7 +74,7 @@ export class ChatService {
   }
 
   /**
-   * 解析模型配置：providerId > DB enabled > .env
+   * 解析模型配置：providerId(前端) > default Provider > .env
    * 返回 ResolvedModelConfig（含完整 api_key）
    */
   private async resolveModelConfig(
@@ -89,6 +89,7 @@ export class ChatService {
             `[Provider Debug] resolveModelConfig → using provider by ID: ` +
             `id=${provider.id}, name=${provider.name}, ` +
             `model=${provider.model}, base_url=${provider.base_url}, ` +
+            `type=${provider.provider_type}, ` +
             `api_key=${this.#safeKeyPrefix(provider.api_key)}`
           )
           return {
@@ -105,14 +106,15 @@ export class ChatService {
       }
     }
 
-    // 2. 数据库启用的 Provider —— 自动读取
+    // 2. 默认 Provider —— is_default=true
     try {
-      const provider = await this.providerService.getActiveProvider()
+      const provider = await this.providerService.getDefaultProvider()
       if (provider) {
         this.logger.log(
-          `[Provider Debug] resolveModelConfig → using enabled provider: ` +
+          `[Provider Debug] resolveModelConfig → using default provider: ` +
           `name=${provider.name}, model=${provider.model}, ` +
           `base_url=${provider.base_url}, ` +
+          `type=${provider.provider_type}, ` +
           `api_key=${this.#safeKeyPrefix(provider.api_key)}`
         )
         return {
@@ -124,7 +126,7 @@ export class ChatService {
         }
       }
     } catch (error) {
-      this.logger.warn('Failed to load provider from DB, falling back to .env:', error)
+      this.logger.warn('Failed to load default provider, falling back to .env:', error)
     }
 
     // 3. .env 兜底

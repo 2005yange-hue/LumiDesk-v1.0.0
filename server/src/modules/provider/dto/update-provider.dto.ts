@@ -13,6 +13,11 @@ export class UpdateProviderDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(32)
+  provider_type?: string
+
+  @IsOptional()
+  @IsString()
   @MaxLength(512)
   base_url?: string
 
