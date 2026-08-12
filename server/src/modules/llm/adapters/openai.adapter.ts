@@ -17,12 +17,23 @@ export class OpenAIAdapter implements ILLMAdapter {
   private client: OpenAI
 
   constructor(apiKey: string, baseURL?: string) {
+    const resolvedBaseURL = baseURL || 'https://api.openai.com/v1'
     this.client = new OpenAI({
       apiKey,
-      baseURL: baseURL || 'https://api.openai.com/v1',
+      baseURL: resolvedBaseURL,
       timeout: 30000
     })
-    this.logger.log(`OpenAI adapter initialized, baseURL: ${baseURL || 'https://api.openai.com/v1'}`)
+    this.logger.log(
+      `[Provider Debug] OpenAIAdapter init → baseURL=${resolvedBaseURL}, ` +
+      `api_key=${this.#safeKeyPrefix(apiKey)}`
+    )
+  }
+
+  /** 安全打印 Key 前缀 */
+  #safeKeyPrefix(key?: string): string {
+    if (!key) return '<empty>'
+    if (key.length <= 8) return key.substring(0, 4) + '...'
+    return key.substring(0, 8) + '...'
   }
 
   async chat(request: LLMRequest): Promise<LLMResponse> {

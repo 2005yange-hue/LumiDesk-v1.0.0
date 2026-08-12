@@ -1,14 +1,11 @@
 import { IsString, IsNotEmpty, IsArray, IsOptional, MaxLength, IsNumber, Min, Max } from 'class-validator'
 
-/** 运行时模型配置 */
+/** 运行时模型配置（前端传入，不含凭据字段） */
 export class ModelConfigDto {
-  @IsString()
+  /** 指定使用哪个已配置的 Provider ID */
+  @IsNumber()
   @IsOptional()
-  apiKey?: string
-
-  @IsString()
-  @IsOptional()
-  apiBaseUrl?: string
+  providerId?: number
 
   @IsString()
   @IsOptional()

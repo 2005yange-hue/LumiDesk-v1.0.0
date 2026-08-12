@@ -81,7 +81,30 @@ export class ProviderService {
       user_id: userId,
       enabled: true
     })
+    if (provider) {
+      this.logger.log(`[Provider Debug] getActiveProvider → name: ${provider.name}, model: ${provider.model}, base_url: ${provider.base_url}, api_key: ${this.#safeKeyPrefix(provider.api_key)}`)
+    } else {
+      this.logger.log(`[Provider Debug] getActiveProvider → no enabled provider found`)
+    }
     return provider || null
+  }
+
+  /** 按 ID 查找 Provider */
+  async findProviderById(id: number): Promise<ModelProvider | null> {
+    const provider = await this.providerRepo.findOneBy({ id })
+    if (provider) {
+      this.logger.log(`[Provider Debug] findProviderById(${id}) → name: ${provider.name}, model: ${provider.model}, base_url: ${provider.base_url}, api_key: ${this.#safeKeyPrefix(provider.api_key)}`)
+    } else {
+      this.logger.log(`[Provider Debug] findProviderById(${id}) → not found`)
+    }
+    return provider || null
+  }
+
+  /** 安全打印 Key 前缀（不暴露完整 Key） */
+  #safeKeyPrefix(key?: string): string {
+    if (!key) return '<empty>'
+    if (key.length <= 8) return key.substring(0, 4) + '...'
+    return key.substring(0, 8) + '...'
   }
 
   /**

@@ -60,13 +60,16 @@ export const useChatStore = defineStore('chat', () => {
     const activeProvider = providerStore.activeProvider()
     const modelConfig = activeProvider
       ? {
-          apiKey: activeProvider.api_key,
-          apiBaseUrl: activeProvider.base_url,
+          providerId: activeProvider.id,
           model: activeProvider.model,
           temperature: settingsStore.modelSettings.temperature,
           maxTokens: settingsStore.modelSettings.maxTokens
         }
-      : settingsStore.getModelConfig()
+      : {
+          model: settingsStore.modelSettings.model,
+          temperature: settingsStore.modelSettings.temperature,
+          maxTokens: settingsStore.modelSettings.maxTokens
+        }
 
     const characterId = settingsStore.activeCharacterId
 

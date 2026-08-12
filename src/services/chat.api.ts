@@ -1,7 +1,13 @@
 import type { ChatStreamChunk, SendMessageRequest, HistoryMessage } from '@/types/chat.types'
-import type { ModelSettings } from '@/types/settings.types'
 
 const API_BASE = '/api'
+
+export interface ModelConfigInput {
+  providerId?: number
+  model?: string
+  temperature?: number
+  maxTokens?: number
+}
 
 /**
  * 发送消息 - SSE 流式响应
@@ -9,7 +15,7 @@ const API_BASE = '/api'
  */
 export async function sendMessageStream(
   request: SendMessageRequest,
-  modelConfig: ModelSettings,
+  modelConfig: ModelConfigInput,
   characterId: string,
   onChunk: (chunk: ChatStreamChunk) => void,
   onError: (error: string) => void,
@@ -21,8 +27,7 @@ export async function sendMessageStream(
       content: request.content,
       history: request.history,
       modelConfig: {
-        apiKey: modelConfig.apiKey,
-        apiBaseUrl: modelConfig.apiBaseUrl,
+        providerId: modelConfig.providerId,
         model: modelConfig.model,
         temperature: modelConfig.temperature,
         maxTokens: modelConfig.maxTokens
