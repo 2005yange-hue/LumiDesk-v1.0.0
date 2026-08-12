@@ -148,8 +148,11 @@ export class ProviderService {
 
   async testConnection(baseUrl: string, apiKey: string, model: string): Promise<ProviderTestResult> {
     const start = Date.now()
+    const safeKey = this.#safeKeyPrefix(apiKey)
     try {
       const url = baseUrl.replace(/\/+$/, '') + '/chat/completions'
+      this.logger.log(`[Provider Debug] testConnection → url=${url}, model=${model}, api_key=${safeKey}`)
+
       const res = await fetch(url, {
         method: 'POST',
         headers: {
@@ -168,24 +171,44 @@ export class ProviderService {
       if (res.ok) {
         const body = await res.json()
         const choice = body.choices?.[0]
-        const response = choice?.message?.content || choice?.text || JSON.stringify(choice).substring(0, 80)
-        return { success: true, latency, model, response: response?.substring(0, 120) }
+        const tokens = body.usage?.total_tokens
+        const response = choice?.message?.content || choice?.text || ''
+        return {
+          success: true,
+          latency,
+          model,
+          tokens,
+          response: response?.substring(0, 120)
+        }
       }
 
+      // 根据 HTTP 状态码返回友好错误信息
       const errBody = await res.text()
-      return {
-        success: false,
-        latency,
-        model,
-        message: `HTTP ${res.status}: ${errBody.substring(0, 200)}`
+      let message: string
+      switch (res.status) {
+        case 401:
+          message = `认证失败：API Key 无效或已过期（请检查密钥）`
+          break
+        case 403:
+          message = `权限不足：API Key 无访问权限或余额不足`
+          break
+        case 404:
+          message = `模型「${model}」不存在（请检查模型名称）`
+          break
+        case 429:
+          message = `请求频率过高，请稍后重试`
+          break
+        default:
+          message = `HTTP ${res.status}: ${errBody.substring(0, 200)}`
       }
+      this.logger.warn(`[Provider Debug] testConnection failed → ${message}`)
+      return { success: false, latency, model, message }
     } catch (error) {
-      return {
-        success: false,
-        latency: Date.now() - start,
-        model,
-        message: String(error)
-      }
+      const message = error instanceof Error
+        ? `网络连接失败：${error.message}（请检查 Base URL 和网络连接）`
+        : String(error)
+      this.logger.warn(`[Provider Debug] testConnection error → ${message}`)
+      return { success: false, latency: Date.now() - start, model, message }
     }
   }
 

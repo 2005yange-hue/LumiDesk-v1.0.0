@@ -13,6 +13,10 @@ export interface ProviderInfo {
   temperature: number
   max_tokens: number
   top_p: number
+  stream: boolean
+  timeout: number
+  custom_headers: string | null
+  custom_body: string | null
   created_at: string
   updated_at: string
 }
@@ -30,6 +34,10 @@ export interface CreateProviderData {
   temperature?: number
   max_tokens?: number
   top_p?: number
+  stream?: boolean
+  timeout?: number
+  custom_headers?: string | null
+  custom_body?: string | null
 }
 
 /** 连接测试结果 */
@@ -39,6 +47,7 @@ export interface TestConnectionResult {
   model: string
   message?: string
   response?: string
+  tokens?: number
 }
 
 /** 本地保存的 Provider 模型 */

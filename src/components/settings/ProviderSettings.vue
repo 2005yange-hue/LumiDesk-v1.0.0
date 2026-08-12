@@ -148,10 +148,21 @@
           >
             获取模型列表
           </el-button>
+          <span v-if="detailModelList.length > 0" class="model-count">
+            共 {{ filteredModels.length }} / {{ detailModelList.length }} 个
+          </span>
+        </div>
+        <div v-if="detailModelList.length > 0" class="model-search">
+          <el-input
+            v-model="modelSearch"
+            size="small"
+            placeholder="搜索模型..."
+            clearable
+          />
         </div>
         <div v-if="detailModelList.length > 0" class="model-list">
           <el-tag
-            v-for="m in detailModelList"
+            v-for="m in filteredModels"
             :key="m.id"
             size="small"
             :type="selected.model === m.id ? 'primary' : 'info'"
@@ -178,7 +189,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useProviderStore } from '@/stores/provider.store'
 import ProviderDialog from './ProviderDialog.vue'
 import { ElMessage } from 'element-plus'
@@ -196,6 +207,14 @@ const selected = ref<ProviderInfo | null>(null)
 const testingId = ref<number | null>(null)
 const loadingModels = ref(false)
 const detailModelList = ref<Array<{ id: string; owned_by: string }>>([])
+const modelSearch = ref('')
+
+/** 搜索过滤模型列表 */
+const filteredModels = computed(() => {
+  if (!modelSearch.value) return detailModelList.value
+  const q = modelSearch.value.toLowerCase()
+  return detailModelList.value.filter((m) => m.id.toLowerCase().includes(q))
+})
 
 onMounted(async () => {
   await store.fetchProviders()
@@ -518,6 +537,18 @@ async function handleSelectModel(modelId: string): Promise<void> {
 
   .detail-models {
     padding-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .model-count {
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+  }
+
+  .model-search {
+    padding-bottom: 8px;
   }
 
   .model-list {

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, IsNumber, MaxLength, Min, Max } from 'class-validator'
+import { IsString, IsOptional, IsBoolean, IsInt, IsNumber, MaxLength, Min, Max } from 'class-validator'
 
 export class CreateProviderDto {
   @IsOptional()
@@ -45,7 +45,7 @@ export class CreateProviderDto {
   temperature?: number
 
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(1)
   max_tokens?: number
 
@@ -54,4 +54,21 @@ export class CreateProviderDto {
   @Min(0)
   @Max(1)
   top_p?: number
+
+  @IsOptional()
+  @IsBoolean()
+  stream?: boolean
+
+  @IsOptional()
+  @IsInt()
+  @Min(1000)
+  timeout?: number
+
+  @IsOptional()
+  @IsString()
+  custom_headers?: string | null
+
+  @IsOptional()
+  @IsString()
+  custom_body?: string | null
 }

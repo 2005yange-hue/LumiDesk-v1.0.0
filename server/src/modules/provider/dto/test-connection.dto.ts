@@ -25,8 +25,9 @@ export interface ProviderTestResult {
   latency: number
   model: string
   message?: string
-  /** API 返回的响应摘要 */
   response?: string
+  /** API 返回的 token 数量 */
+  tokens?: number
 }
 
 /** 添加模型到 Provider */

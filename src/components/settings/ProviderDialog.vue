@@ -84,9 +84,51 @@
           测试连接
         </el-button>
         <span v-if="testResult" :class="['test-result', testResult.success ? 'success' : 'fail']">
-          {{ testResult.success ? `✓ 连接成功 (${testResult.latency}ms)` : `✗ ${testResult.message}` }}
+          <template v-if="testResult.success">
+            ✓ 连接成功 ({{ testResult.latency }}ms<template v-if="testResult.tokens">, {{ testResult.tokens }} tokens</template>)
+          </template>
+          <template v-else>
+            ✗ {{ testResult.message }}
+          </template>
         </span>
       </el-form-item>
+
+      <!-- 高级设置 -->
+      <el-divider />
+      <el-form-item>
+        <el-button text type="info" @click="showAdvanced = !showAdvanced">
+          {{ showAdvanced ? '收起' : '展开' }}高级设置
+          <el-icon><component :is="showAdvanced ? 'ArrowUp' : 'ArrowDown'" /></el-icon>
+        </el-button>
+      </el-form-item>
+
+      <template v-if="showAdvanced">
+        <el-form-item label="请求超时 (ms)">
+          <el-input-number v-model="form.timeout" :min="1000" :max="300000" :step="5000" />
+        </el-form-item>
+
+        <el-form-item label="流式响应">
+          <el-switch v-model="form.stream" />
+        </el-form-item>
+
+        <el-form-item label="自定义 Headers (JSON)">
+          <el-input
+            v-model="form.custom_headers"
+            type="textarea"
+            :rows="2"
+            placeholder='{"X-Custom-Header": "value"}'
+          />
+        </el-form-item>
+
+        <el-form-item label="自定义 Body (JSON)">
+          <el-input
+            v-model="form.custom_body"
+            type="textarea"
+            :rows="2"
+            placeholder='{"extra_param": "value"}'
+          />
+        </el-form-item>
+      </template>
 
       <el-form-item label="设为默认">
         <el-checkbox v-model="form.is_default">将此 Provider 设为默认连接</el-checkbox>
@@ -128,8 +170,9 @@ const isEdit = ref(false)
 const saving = ref(false)
 const testing = ref(false)
 const fetchingModels = ref(false)
-const testResult = ref<{ success: boolean; latency: number; model: string; message?: string } | null>(null)
+const testResult = ref<{ success: boolean; latency: number; model: string; message?: string; tokens?: number } | null>(null)
 const modelList = ref<Array<{ id: string; owned_by: string }>>([])
+const showAdvanced = ref(false)
 
 const form = reactive({
   name: '',
@@ -141,7 +184,11 @@ const form = reactive({
   is_default: false,
   temperature: 0.7,
   max_tokens: 4096,
-  top_p: 1.0
+  top_p: 1.0,
+  stream: true,
+  timeout: 30000,
+  custom_headers: '' as string | null,
+  custom_body: '' as string | null
 })
 
 // 编辑时填充表单
@@ -157,6 +204,10 @@ watch(() => props.editProvider, (provider) => {
     form.temperature = provider.temperature ?? 0.7
     form.max_tokens = provider.max_tokens ?? 4096
     form.top_p = provider.top_p ?? 1.0
+    form.stream = provider.stream ?? true
+    form.timeout = provider.timeout ?? 30000
+    form.custom_headers = provider.custom_headers || ''
+    form.custom_body = provider.custom_body || ''
     form.api_key = ''
   } else {
     isEdit.value = false
@@ -202,7 +253,11 @@ async function handleSave(): Promise<void> {
         is_default: form.is_default,
         temperature: form.temperature,
         max_tokens: form.max_tokens,
-        top_p: form.top_p
+        top_p: form.top_p,
+        stream: form.stream,
+        timeout: form.timeout,
+        custom_headers: form.custom_headers || null as unknown as string,
+        custom_body: form.custom_body || null as unknown as string
       }
       // 只有输入了新 Key 才更新
       if (form.api_key) {
@@ -235,8 +290,16 @@ function resetForm(): void {
   form.api_key = ''
   form.model = ''
   form.is_default = false
+  form.temperature = 0.7
+  form.max_tokens = 4096
+  form.top_p = 1.0
+  form.stream = true
+  form.timeout = 30000
+  form.custom_headers = ''
+  form.custom_body = ''
   testResult.value = null
   modelList.value = []
+  showAdvanced.value = false
 }
 </script>
 
