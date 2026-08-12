@@ -16,8 +16,8 @@ import { EmbeddingProvider } from './embedding.interface'
  *   2. .env 配置
  *
  * 安全降级：
- *   - 未配置 → 静默禁用
- *   - API 请求超时（5s）或失败 → 返回空向量，记录 warn
+ *   - 未配置 → 返回 null，日志 `[Embedding] disabled`
+ *   - API 请求超时（5s）或失败 → 返回 null，日志 `[Embedding] failed`
  */
 @Injectable()
 export class EmbeddingService implements EmbeddingProvider {
@@ -62,14 +62,16 @@ export class EmbeddingService implements EmbeddingProvider {
     this.logger.log(`[EmbeddingService] Configured | baseURL: ${baseURL} | model: ${this.model}`)
   }
 
-  async embed(text: string): Promise<number[]> {
+  async embed(text: string): Promise<number[] | null> {
     const results = await this.embedBatch([text])
-    return results[0] || []
+    if (!results) return null
+    return results[0] || null
   }
 
-  async embedBatch(texts: string[]): Promise<number[][]> {
+  async embedBatch(texts: string[]): Promise<number[][] | null> {
     if (!this.client) {
-      return texts.map(() => [])
+      this.logger.warn('[Embedding] disabled: no embedding configuration')
+      return null
     }
 
     const start = Date.now()
@@ -89,8 +91,9 @@ export class EmbeddingService implements EmbeddingProvider {
       return sorted.map((d) => d.embedding)
     } catch (error) {
       const elapsed = Date.now() - start
-      this.logger.warn(`[EmbeddingService] API call failed after ${elapsed}ms: ${error}`)
-      return texts.map(() => [])
+      const errMsg = error instanceof Error ? error.message : String(error)
+      this.logger.warn(`[Embedding] failed after ${elapsed}ms: ${errMsg}`)
+      return null
     }
   }
 }

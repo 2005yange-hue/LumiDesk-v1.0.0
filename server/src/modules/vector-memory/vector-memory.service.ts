@@ -74,6 +74,12 @@ export class VectorMemoryService {
       EMBEDDING_TIMEOUT_MS,
       'embedding'
     )
+
+    if (!embedding || embedding.length === 0) {
+      this.logger.warn(`[Embedding] skipped: embedding unavailable (${Date.now() - embedStart}ms)`)
+      return
+    }
+
     this.logger.log(`[Embedding] success dimension=${embedding.length} (${Date.now() - embedStart}ms)`)
 
     await this.chromaService.addMemory({
@@ -126,6 +132,12 @@ export class VectorMemoryService {
       EMBEDDING_TIMEOUT_MS,
       'embedding'
     )
+
+    if (!embedding || embedding.length === 0) {
+      this.logger.warn(`[Embedding] skipped: embedding unavailable (${Date.now() - embedStart}ms)`)
+      return []
+    }
+
     this.logger.log(`[Embedding] success dimension=${embedding.length} (${Date.now() - embedStart}ms)`)
 
     const k = topK ?? 5
