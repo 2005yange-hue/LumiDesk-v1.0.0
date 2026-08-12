@@ -170,10 +170,10 @@ async function handleDeleteCharacter(char: CharacterData): Promise<void> {
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text-primary);
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-color-light);
 }
 
 .active-char-card {
@@ -181,9 +181,9 @@ async function handleDeleteCharacter(char: CharacterData): Promise<void> {
   align-items: center;
   gap: 12px;
   padding: 14px;
-  background: linear-gradient(135deg, #667eea0a, #764ba20a);
-  border: 1px solid #667eea33;
-  border-radius: 10px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
 
   .char-avatar {
     width: 48px;
@@ -200,9 +200,9 @@ async function handleDeleteCharacter(char: CharacterData): Promise<void> {
   }
 
   .char-info {
-    .char-name { font-size: 15px; font-weight: 600; color: #303133; }
+    .char-name { font-size: 15px; font-weight: 600; color: var(--text-primary); }
     .char-tags { display: flex; gap: 4px; margin: 4px 0; }
-    .char-desc { font-size: 12px; color: #909399; line-height: 1.5; }
+    .char-desc { font-size: 12px; color: var(--text-tertiary); line-height: 1.5; }
   }
 }
 
@@ -212,7 +212,7 @@ async function handleDeleteCharacter(char: CharacterData): Promise<void> {
   align-items: center;
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-color-light);
 
   .section-title { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
 }
@@ -222,14 +222,14 @@ async function handleDeleteCharacter(char: CharacterData): Promise<void> {
   align-items: center;
   gap: 10px;
   padding: 10px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  border: 1px solid var(--border-color-medium);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.2s;
   margin-bottom: 6px;
 
-  &:hover { border-color: #409eff; }
-  &.active { border-color: #409eff; background: #ecf5ff; }
+  &:hover { border-color: var(--color-primary); }
+  &.active { border-color: var(--color-primary); background: var(--bg-hover); }
 
   .char-item-avatar {
     width: 36px;
@@ -249,8 +249,8 @@ async function handleDeleteCharacter(char: CharacterData): Promise<void> {
     flex: 1;
     min-width: 0;
 
-    .char-item-name { font-size: 13px; font-weight: 500; color: #303133; }
-    .char-item-personality { font-size: 11px; color: #909399; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .char-item-name { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+    .char-item-personality { font-size: 11px; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   }
 
   .char-item-action {

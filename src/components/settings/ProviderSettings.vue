@@ -157,8 +157,8 @@ function formatUrl(url: string): string {
   display: flex;
   height: 100%;
   gap: 0;
-  border: 1px solid #ebeef5;
-  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
@@ -166,8 +166,8 @@ function formatUrl(url: string): string {
 .provider-list-panel {
   width: 260px;
   min-width: 260px;
-  background: #fafafa;
-  border-right: 1px solid #ebeef5;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
 
@@ -176,19 +176,19 @@ function formatUrl(url: string): string {
     justify-content: space-between;
     align-items: center;
     padding: 12px 16px;
-    border-bottom: 1px solid #ebeef5;
+    border-bottom: 1px solid var(--border-color);
 
     .panel-title {
       font-size: 14px;
       font-weight: 600;
-      color: #303133;
+      color: var(--text-primary);
     }
   }
 
   .loading-hint, .empty-hint {
     padding: 24px 16px;
     text-align: center;
-    color: #909399;
+    color: var(--text-tertiary);
     font-size: 13px;
 
     .sub { font-size: 12px; margin-top: 4px; }
@@ -198,11 +198,11 @@ function formatUrl(url: string): string {
 .provider-item {
   padding: 10px 16px;
   cursor: pointer;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--border-color);
   transition: background 0.15s;
 
-  &:hover { background: #ecf5ff; }
-  &.active { background: #ecf5ff; }
+  &:hover { background: var(--bg-hover); }
+  &.active { background: var(--bg-hover); }
 
   .provider-status {
     display: flex;
@@ -216,14 +216,14 @@ function formatUrl(url: string): string {
       border-radius: 50%;
       flex-shrink: 0;
 
-      &.on { background: #67c23a; }
-      &.off { background: #c0c4cc; }
+      &.on { background: var(--color-success); }
+      &.off { background: var(--text-placeholder); }
     }
 
     .provider-name {
       font-size: 14px;
       font-weight: 500;
-      color: #303133;
+      color: var(--text-primary);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -238,12 +238,12 @@ function formatUrl(url: string): string {
 
     .model-tag {
       font-size: 12px;
-      color: #409eff;
+      color: var(--color-primary);
     }
 
     .url-hint {
       font-size: 11px;
-      color: #c0c4cc;
+      color: var(--text-placeholder);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -260,7 +260,7 @@ function formatUrl(url: string): string {
   &.empty-detail {
     align-items: center;
     justify-content: center;
-    color: #c0c4cc;
+    color: var(--text-placeholder);
     font-size: 14px;
   }
 
@@ -269,12 +269,12 @@ function formatUrl(url: string): string {
     justify-content: space-between;
     align-items: center;
     padding: 16px 20px;
-    border-bottom: 1px solid #ebeef5;
+    border-bottom: 1px solid var(--border-color);
 
     h3 {
       font-size: 16px;
       font-weight: 600;
-      color: #303133;
+      color: var(--text-primary);
       margin: 0;
     }
 
@@ -302,12 +302,12 @@ function formatUrl(url: string): string {
       width: 72px;
       flex-shrink: 0;
       font-size: 13px;
-      color: #909399;
+      color: var(--text-tertiary);
     }
 
     .value {
       font-size: 13px;
-      color: #303133;
+      color: var(--text-primary);
       word-break: break-all;
 
       &.mono {
@@ -315,8 +315,8 @@ function formatUrl(url: string): string {
         font-size: 12px;
       }
 
-      &.on { color: #67c23a; font-weight: 500; }
-      &.off { color: #f56c6c; }
+      &.on { color: var(--color-success); font-weight: 500; }
+      &.off { color: var(--color-danger); }
     }
   }
 }

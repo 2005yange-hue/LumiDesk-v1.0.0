@@ -106,10 +106,10 @@ function handleReset(): void {
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text-primary);
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-color-light);
 }
 
 .preset-grid {
@@ -120,20 +120,20 @@ function handleReset(): void {
 
 .preset-card {
   padding: 10px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  border: 1px solid var(--border-color-medium);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.2s;
 
-  &:hover { border-color: #409eff; }
+  &:hover { border-color: var(--color-primary); }
 
-  &.active { border-color: #409eff; background: #ecf5ff; }
+  &.active { border-color: var(--color-primary); background: var(--bg-hover); }
 
-  .preset-name { font-size: 13px; font-weight: 500; color: #303133; }
-  .preset-provider { font-size: 11px; color: #909399; margin-top: 2px; text-transform: capitalize; }
+  .preset-name { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+  .preset-provider { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; text-transform: capitalize; }
 }
 
-.form-hint { font-size: 11px; color: #909399; }
+.form-hint { font-size: 11px; color: var(--text-tertiary); }
 
 .actions { display: flex; gap: 8px; padding-top: 8px; }
 </style>

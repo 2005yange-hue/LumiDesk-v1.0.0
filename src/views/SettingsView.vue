@@ -41,11 +41,11 @@ const activeTab = ref('provider')
 </script>
 
 <style scoped lang="scss">
-.settings-view {
+.settings-page {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  background: #fff;
+  min-height: 100vh;
+  background: var(--bg-primary);
 }
 
 .settings-header {
@@ -53,8 +53,9 @@ const activeTab = ref('provider')
   align-items: center;
   gap: 8px;
   padding: 10px 16px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--border-color);
   -webkit-app-region: drag;
+  background: var(--bg-secondary);
 
   h2 {
     flex: 1;
@@ -62,6 +63,7 @@ const activeTab = ref('provider')
     font-size: 16px;
     font-weight: 600;
     text-align: center;
+    color: var(--text-primary);
   }
 
   .spacer { width: 60px; }
@@ -74,11 +76,6 @@ const activeTab = ref('provider')
   overflow-y: auto;
 
   &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-thumb { background: #c0c4cc; border-radius: 2px; }
-}
-
-.settings-tabs {
-  height: 100%;
-  :deep(.el-tabs__header) { padding: 0 16px; margin: 0; }
+  &::-webkit-scrollbar-thumb { background: var(--text-placeholder); border-radius: 2px; }
 }
 </style>

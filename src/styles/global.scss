@@ -1,4 +1,54 @@
-// 全局样式
+// ──── CSS 变量 ────
+:root {
+  // 背景
+  --bg-primary: #f5f7fa;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-sidebar: #fafafa;
+  --bg-hover: #ecf5ff;
+  --bg-input: #ffffff;
+
+  // 文字
+  --text-primary: #303133;
+  --text-secondary: #606266;
+  --text-tertiary: #909399;
+  --text-placeholder: #c0c4cc;
+
+  // 边框
+  --border-color: #ebeef5;
+  --border-color-light: #f0f0f0;
+  --border-color-medium: #e0e0e0;
+
+  // 品牌色
+  --color-primary: #409eff;
+  --color-success: #67c23a;
+  --color-danger: #f56c6c;
+
+  // 圆角
+  --radius-sm: 8px;
+  --radius-md: 12px;
+}
+
+// ──── 暗色模式 ────
+[data-theme='dark'] {
+  --bg-primary: #111111;
+  --bg-secondary: #1e1e1e;
+  --bg-card: #1e1e1e;
+  --bg-sidebar: #181818;
+  --bg-hover: #2a2a3a;
+  --bg-input: #2a2a2a;
+
+  --text-primary: #e0e0e0;
+  --text-secondary: #b0b0b0;
+  --text-tertiary: #808080;
+  --text-placeholder: #606060;
+
+  --border-color: #333333;
+  --border-color-light: #2a2a2a;
+  --border-color-medium: #3a3a3a;
+}
+
+// ──── 全局重置 ────
 * {
   margin: 0;
   padding: 0;

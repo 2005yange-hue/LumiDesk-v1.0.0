@@ -18,8 +18,8 @@
   text-align: center;
   padding: 40px 0;
 
-  .app-name { font-size: 18px; font-weight: 600; color: #303133; margin-bottom: 4px; }
-  .app-version { font-size: 13px; color: #909399; margin-bottom: 16px; }
-  .app-desc { font-size: 13px; color: #606266; line-height: 1.6; }
+  .app-name { font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+  .app-version { font-size: 13px; color: var(--text-tertiary); margin-bottom: 16px; }
+  .app-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
 }
 </style>
