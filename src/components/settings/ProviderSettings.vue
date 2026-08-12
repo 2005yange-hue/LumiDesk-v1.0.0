@@ -111,6 +111,14 @@
           </span>
         </div>
         <div class="detail-row">
+          <span class="label">高级设置</span>
+          <span class="value">
+            流式{{ selected.stream ? '✓' : '✗' }}, 超时{{ selected.timeout ?? 30000 }}ms
+            <template v-if="selected.custom_headers"><br />Headers: {{ selected.custom_headers }}</template>
+            <template v-if="selected.custom_body"><br />Body: {{ selected.custom_body }}</template>
+          </span>
+        </div>
+        <div class="detail-row">
           <span class="label">API Key</span>
           <span class="value mono">{{ selected.api_key }}</span>
         </div>
@@ -311,6 +319,8 @@ function formatUrl(url: string): string {
 async function handleSelectModel(modelId: string): Promise<void> {
   if (!selected.value) return
   await store.updateProvider(selected.value.id, { model: modelId } as Record<string, string | boolean | number>)
+  // 刷新 selected 引用（store.providers 已被 replace）
+  selected.value = store.providers.find((p) => p.id === selected.value!.id) || selected.value
   ElMessage.success(`已选择模型: ${modelId}`)
 }
 </script>

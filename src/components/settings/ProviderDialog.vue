@@ -205,6 +205,10 @@ watch(() => props.editProvider, (provider) => {
     form.custom_headers = provider.custom_headers || ''
     form.custom_body = provider.custom_body || ''
     form.api_key = ''
+    // 切换编辑对象时重置状态
+    modelList.value = []
+    showAdvanced.value = false
+    testResult.value = null
   } else {
     isEdit.value = false
     resetForm()
@@ -268,7 +272,14 @@ async function handleSave(): Promise<void> {
         base_url: form.base_url,
         api_key: form.api_key,
         model: form.model,
-        is_default: form.is_default
+        is_default: form.is_default,
+        temperature: form.temperature,
+        max_tokens: form.max_tokens,
+        top_p: form.top_p,
+        stream: form.stream,
+        timeout: form.timeout,
+        custom_headers: form.custom_headers || null,
+        custom_body: form.custom_body || null
       })
     }
     visible.value = false
