@@ -242,24 +242,25 @@
 - 新增 `CHAT_CONTEXT_LIMIT`（默认 20）
 
 ---
-
-## v0.6.0 — Conversation & Context Enhancement（Phase 1）
+## v0.6.0 — Conversation Management
 
 **日期：** 2026-08-12
 
 ### 新增
 - **ConversationModule** — 会话管理后端模块
-  - 会话 CRUD（`GET/POST/PATCH/DELETE /api/conversations`）
-  - 历史消息分页查询（`GET /api/conversations/:id/messages`，支持 page/limit）
-  - `message_count` 缓存字段（increment 累加，避免 COUNT 查询）
-  - 级联删除（数据库事务保证原子性）
-  - `saveCurrentMessages()` 自动维护活跃会话
-- ChatController 持久化调用迁移至 `ConversationService.saveCurrentMessages()`
+- Conversation CRUD API（`GET/POST/PATCH/DELETE /api/conversations`）
+- 历史消息分页加载（`GET /api/conversations/:id/messages`，支持 page/limit）
+- 会话列表管理（ConversationSidebar，酒馆暗色风格）
+- 多会话切换
+- 会话删除 / 重命名功能
+- 当前会话 localStorage 持久化（key：`conversation_current_id`）
+- 自动标题生成（首条消息截断，不调用 LLM）
 
 ### 修改
-- `conversation.entity.ts` — 新增 `message_count` INT DEFAULT 0
-- `chat.controller.ts` — 替换 `MemoryService` → `ConversationService`（仅 saveMessages 调用）
-- `chat.module.ts` / `app.module.ts` — 注册 `ConversationModule`
+- ChatController 持久化逻辑迁移到 ConversationService
+- ChatView 支持 Sidebar 布局
+- chat.store 新增会话加载能力（`setMessages` / `loadConversation`）
+- `conversation.entity.ts` — 新增 `message_count` 字段（increment 累加，避免 COUNT 查询）
 
 ### 数据库变化
 - `conversations` 表新增 `message_count` 列（INT, DEFAULT 0）
@@ -268,22 +269,16 @@
 
 ## 后续版本规划
 
-### v0.6.0 — 对话体验增强（Phase 2）
-- 前端 ConversationSidebar 会话列表
-- 对话切换与历史加载
-- 会话重命名
+### v0.7.0 — Token 与上下文优化
+- Token Budget 管理
+- Summary 摘要系统
+- 长上下文优化
 
-### v0.7.0 — Live2D 角色展示
-- Live2D 模型加载
-- 动作/表情控制
-- 情绪-动作映射
-
-### v0.8.0 — 视觉感知
-- Electron 截图采集
-- VLM 多模态分析
-- 环境状态识别
+### v0.8.0 — 多模态与情绪
+- Live2D 角色展示（模型加载 / 表情 / 动作）
+- 情绪系统
+- 视觉感知（Electron 截图采集 / VLM 分析）
 
 ### v0.9.0 — Agent 主动交互
 - 行为决策引擎
-- 情绪系统动态变化
 - 主动提醒与通知

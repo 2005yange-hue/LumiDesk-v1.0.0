@@ -4,6 +4,7 @@ import type { ChatMessage, HistoryMessage } from '@/types/chat.types'
 import { sendMessageStream } from '@/services/chat.api'
 import { useSettingsStore } from './settings.store'
 import { useProviderStore } from './provider.store'
+import { useConversationStore } from './conversation.store'
 
 export const useChatStore = defineStore('chat', () => {
   const messages = ref<ChatMessage[]>([])
@@ -123,6 +124,28 @@ export const useChatStore = defineStore('chat', () => {
     error.value = null
   }
 
+  /** 直接设置消息列表（用于加载历史对话） */
+  function setMessages(list: ChatMessage[]): void {
+    stopGeneration()
+    messages.value = list
+    error.value = null
+  }
+
+  /** 加载指定会话的历史消息到当前聊天界面 */
+  async function loadConversation(conversationId: string): Promise<void> {
+    const conversationStore = useConversationStore()
+    const result = await conversationStore.loadMessages(conversationId)
+    if (result && result.messages) {
+      const list: ChatMessage[] = result.messages.map((m) => ({
+        id: m.id,
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        timestamp: m.created_at
+      }))
+      setMessages(list)
+    }
+  }
+
   return {
     messages,
     isStreaming,
@@ -130,6 +153,8 @@ export const useChatStore = defineStore('chat', () => {
     error,
     sendMessage,
     stopGeneration,
-    clearMessages
+    clearMessages,
+    setMessages,
+    loadConversation
   }
 })

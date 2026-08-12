@@ -385,6 +385,23 @@ data: {"content":"","fullContent":"完整回复内容","done":true,"id":"msg-uui
 }
 ```
 
+**返回结构说明：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `messages` | array | 当前页消息列表 |
+| `total` | number | 该会话消息总数 |
+
+**消息字段：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | string | 消息 ID |
+| `role` | string | 角色（user/assistant/system） |
+| `content` | string | 消息内容 |
+| `token_count` | number \| null | Token 消耗 |
+| `created_at` | string | 发送时间 |
+
 ---
 
 ### POST /api/conversations

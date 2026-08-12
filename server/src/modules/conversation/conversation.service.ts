@@ -151,10 +151,51 @@ export class ConversationService {
       // 缓存字段：使用 increment 避免 COUNT 查询
       await this.conversationRepo.increment({ id: conversationId }, 'message_count', 2)
 
+      // 首次聊天时自动生成标题（标题为默认空值时）
+      await this.generateTitleIfNeeded(conversationId, userMessage)
+
       this.logger.debug(`Saved 2 messages to conversation ${conversationId}`)
     } catch (error) {
       this.logger.warn('Failed to save messages (non-blocking):', error)
     }
+  }
+
+  /**
+   * 若会话标题为空（默认值），则根据首条用户消息生成标题
+   * 不调用 LLM，纯文本截断处理
+   */
+  private async generateTitleIfNeeded(conversationId: string, firstMessage: string): Promise<void> {
+    try {
+      const conversation = await this.conversationRepo.findOne({
+        where: { id: conversationId }
+      })
+      if (!conversation || conversation.title) return
+
+      const title = this.buildTitle(firstMessage)
+      if (!title) return
+
+      await this.conversationRepo.update(conversationId, { title })
+      this.logger.log(`Generated title for conversation ${conversationId}: ${title}`)
+    } catch (error) {
+      this.logger.warn('Failed to generate conversation title (non-blocking):', error)
+    }
+  }
+
+  /**
+   * 从用户消息生成标题：
+   * - 去除换行
+   * - 去除首尾空格
+   * - 最大长度 20 字符，超出追加 "..."
+   * - 空消息返回空字符串（不处理）
+   */
+  private buildTitle(message: string): string {
+    const cleaned = message.replace(/\r?\n/g, ' ').trim()
+    if (!cleaned) return ''
+
+    const MAX_TITLE_LENGTH = 20
+    return cleaned.length > MAX_TITLE_LENGTH
+      ? cleaned.slice(0, MAX_TITLE_LENGTH) + '...'
+      : cleaned
   }
 
   /**

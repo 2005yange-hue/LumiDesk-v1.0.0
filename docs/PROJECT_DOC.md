@@ -86,24 +86,32 @@
 - 安全降级：无配置时跳过 Chroma，不影响聊天主流程
 - 语义相似度搜索（Top-K）
 
-### 4.6 屏幕视觉感知 📋（规划中）
+### 4.6 Conversation 会话管理 ✅
+
+- 多会话管理（Sidebar 会话列表 + 切换）
+- 会话 CRUD（新建 / 重命名 / 删除）
+- 历史消息分页加载
+- 当前会话 localStorage 持久化
+- 首次消息自动生成标题
+
+### 4.7 屏幕视觉感知 📋（规划中）
 
 - 定时屏幕截图
 - 多模态 VLM 分析
 - 环境状态识别
 
-### 4.7 情绪状态系统 📋（规划中）
+### 4.8 情绪状态系统 📋（规划中）
 
 - 开心度 / 信任度 / 亲密度 / 精力值
 - 状态影响回复语气和角色表现
 
-### 4.8 Live2D 角色系统 📋（规划中）
+### 4.9 Live2D 角色系统 📋（规划中）
 
 - 虚拟角色模型加载
 - 表情切换、动作播放
 - 口型同步
 
-### 4.9 Agent 主动交互 📋（规划中）
+### 4.10 Agent 主动交互 📋（规划中）
 
 - 定时状态评估
 - 主动触发决策
@@ -187,17 +195,21 @@
 ├── src/                          # 前端（Vue3 + Electron）
 │   ├── components/
 │   │   ├── chat/                 # 聊天界面组件
+│   │   │   └── ConversationSidebar.vue
 │   │   ├── settings/             # 设置页面组件
 │   │   │   ├── ProviderDialog.vue
 │   │   │   └── ProviderSettings.vue
 │   │   └── live2d/               # Live2D 组件（规划）
 │   ├── stores/                   # Pinia 状态管理
 │   │   ├── chat.store.ts
+│   │   ├── conversation.store.ts
 │   │   └── provider.store.ts
 │   ├── services/                 # API 请求封装
 │   │   ├── chat.api.ts
+│   │   ├── conversation.api.ts
 │   │   └── provider.api.ts
 │   ├── types/                    # TypeScript 类型定义
+│   │   ├── conversation.types.ts
 │   │   └── provider.types.ts
 │   ├── styles/                   # 全局样式
 │   │   └── global.scss           # CSS 变量体系（light/dark）
@@ -232,8 +244,12 @@
 │   │   │   │   │   ├── model-provider.entity.ts
 │   │   │   │   │   └── provider-model.entity.ts
 │   │   │   │   └── dto/
-│   │   │   └── character/        # 角色管理模块
-│   │   │       └── character.service.ts
+│   │   │   ├── character/        # 角色管理模块
+│   │   │   │   └── character.service.ts
+│   │   │   └── conversation/     # 会话管理模块
+│   │   │       ├── conversation.service.ts
+│   │   │       ├── conversation.controller.ts
+│   │   │       └── dto/
 │   │   ├── prompts/              # Prompt 模板
 │   │   │   ├── system.txt
 │   │   │   ├── character.txt
@@ -273,6 +289,7 @@
 | Memory 长期记忆 | ✅ 已实现 | `server/src/modules/memory/` |
 | Vector Memory 向量记忆 | ✅ 已实现 | `server/src/modules/vector-memory/` |
 | Provider 管理 | ✅ 已实现 | `server/src/modules/provider/` |
+| Conversation 会话管理 | ✅ 已实现 | `server/src/modules/conversation/` |
 | Vision 视觉感知 | 📋 规划中 | — |
 | Emotion 情绪系统 | 📋 规划中 | — |
 | Agent 主动交互 | 📋 规划中 | — |

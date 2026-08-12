@@ -27,6 +27,7 @@
               │   NestJS 后端      │
               │  ┌─────────────┐  │
               │  │ ChatModule  │  │  ← SSE 流式 + 上下文编排
+              │  │ConversMod  │  │  ← 会话 CRUD + 消息持久化
               │  │ LLMModule   │  │  ← 模型调度
               │  │MemoryModule │  │  ← 长期记忆提取 + 存储
               │  │ VecMemoryMod│  │  ← 向量化 + ChromaDB 检索
@@ -229,6 +230,11 @@ server/src/
 │   ├── character/          # 角色模块 ✅
 │   │   ├── character.module.ts
 │   │   └── character.service.ts
+│   ├── conversation/       # 会话管理模块 ✅
+│   │   ├── conversation.module.ts
+│   │   ├── conversation.service.ts      # 会话 CRUD + 消息持久化
+│   │   ├── conversation.controller.ts   # REST API
+│   │   └── dto/
 │   ├── vision/             # 视觉模块（规划中）
 │   ├── audio/              # 语音模块（规划中）
 │   └── agent/              # Agent 模块（规划中）
@@ -244,12 +250,17 @@ server/src/
 ```
 ChatModule          → 编排层，不实现具体功能
   依赖 ↓
+ConversationModule  → 会话生命周期 + 消息持久化 + 历史分页
 LLMModule           → 模型调用，不关心 Prompt 内容
 ProviderModule      → Provider 管理，不关心聊天流程
 CharacterModule     → 角色管理，不关心记忆
-MemoryModule        → 结构化记忆，不关心向量检索
+MemoryModule        → 长期记忆（MemoryEntry + MemoryExtractor）
 VectorMemoryModule  → 向量检索，不关心记忆提取
 ```
+
+**说明：** ConversationModule 与 MemoryModule 职责分离 —
+- ConversationModule 负责会话 CRUD、消息持久化、历史分页、会话元数据
+- MemoryModule 负责长期记忆（MemoryEntry 结构化存储 + MemoryExtractor 提取）
 
 **红线：**
 - ChatService 不膨胀 — 新功能必须独立 Module
@@ -314,7 +325,11 @@ ResolvedModelConfig {
      │
 5. SSE 逐块返回 → 前端渲染
      │
-6. 持久化对话 + 消息到 MySQL
+6. ChatController（SSE 完成后异步）
+   └── ConversationService.saveCurrentMessages()
+       ├── 保存用户消息 + AI 回复
+       ├── message_count += 2（increment 累加）
+       └── 首次消息自动生成标题（空标题时）
 ```
 
 ---

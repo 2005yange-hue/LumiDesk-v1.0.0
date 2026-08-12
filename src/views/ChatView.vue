@@ -1,7 +1,15 @@
 <template>
-  <div class="chat-view">
-    <!-- 顶部栏 -->
-    <div class="chat-header">
+  <div class="chat-layout">
+    <!-- 会话侧边栏 -->
+    <ConversationSidebar
+      @conversation-created="onConversationCreated"
+      @conversation-selected="onConversationSelected"
+      @conversation-deleted="onConversationDeleted"
+    />
+
+    <div class="chat-view">
+      <!-- 顶部栏 -->
+      <div class="chat-header">
       <h2>AI 桌面伙伴</h2>
       <div class="model-selector">
         <el-select
@@ -31,8 +39,13 @@
     <!-- 消息列表 -->
     <div class="chat-body" ref="bodyRef">
       <div v-if="messages.length === 0" class="welcome-message">
-        <div class="welcome-avatar">艾莉</div>
-        <p>你好，我是艾莉，你的桌面 AI 伙伴</p>
+        <div class="welcome-avatar">{{ activeCharacterName[0] || '艾' }}</div>
+        <p class="welcome-title">你好，我是{{ activeCharacterName }}</p>
+        <div class="welcome-meta">
+          <span class="meta-item">角色：{{ activeCharacterName }}</span>
+          <span class="meta-item">模型：{{ activeModelName }}</span>
+          <span class="meta-item meta-memory">长期记忆：已开启</span>
+        </div>
         <p class="welcome-hint">有什么想聊的吗？</p>
       </div>
 
@@ -91,27 +104,61 @@
       <p class="footer-hint">按 Enter 发送消息</p>
     </div>
   </div>
+</div>
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, watch, onMounted } from 'vue'
+import { ref, nextTick, watch, onMounted, computed } from 'vue'
 import { Delete } from '@element-plus/icons-vue'
 import { useChatStore } from '@/stores/chat.store'
 import { useProviderStore } from '@/stores/provider.store'
+import { useConversationStore } from '@/stores/conversation.store'
+import { useSettingsStore } from '@/stores/settings.store'
 import { storeToRefs } from 'pinia'
+import type { CharacterData } from '@/types/character.types'
+import { getCharacters } from '@/services/character.api'
+import ConversationSidebar from '@/components/chat/ConversationSidebar.vue'
 
 const store = useChatStore()
 const providerStore = useProviderStore()
+const conversationStore = useConversationStore()
+const settingsStore = useSettingsStore()
 const { messages, isStreaming, error } = storeToRefs(store)
 
 const inputText = ref('')
 const bodyRef = ref<HTMLElement | null>(null)
 const selectedProviderId = ref<number | null>(null)
+const characters = ref<CharacterData[]>([])
+
+// ──── 空状态展示信息 ────
+const activeCharacterName = computed(() => {
+  if (settingsStore.activeCharacterId) {
+    const char = characters.value.find((c) => c.id === settingsStore.activeCharacterId)
+    if (char) return char.name
+  }
+  return characters.value[0]?.name || '艾莉'
+})
+
+const activeModelName = computed(() => {
+  const active = providerStore.activeProvider()
+  return active?.model || settingsStore.modelSettings.model || '未配置'
+})
 
 onMounted(async () => {
   await providerStore.refreshActive()
   if (providerStore.activeProviderId) {
     selectedProviderId.value = providerStore.activeProviderId
+  }
+  // 加载角色列表（用于空状态展示当前角色名）
+  try {
+    characters.value = await getCharacters()
+  } catch {
+    characters.value = []
+  }
+  // 加载会话列表，并恢复当前会话
+  await conversationStore.fetchList()
+  if (conversationStore.currentConversationId) {
+    await store.loadConversation(conversationStore.currentConversationId)
   }
 })
 
@@ -169,14 +216,43 @@ function handleEnter(): void {
 // ──── 清空对话 ────
 function handleClear(): void {
   store.clearMessages()
+  conversationStore.clearSelection()
+}
+
+// ──── 侧边栏事件 ────
+async function onConversationCreated(): Promise<void> {
+  store.clearMessages()
+}
+
+async function onConversationSelected(id: string): Promise<void> {
+  await store.loadConversation(id)
+}
+
+async function onConversationDeleted(): Promise<void> {
+  // store.remove() 已通过 fetchList 完成当前会话自动选择：
+  // - 仍有其他会话 → 自动选择最近会话，加载其历史
+  // - 无会话 → currentConversationId 为 null，清空聊天区
+  if (conversationStore.currentConversationId) {
+    await store.loadConversation(conversationStore.currentConversationId)
+  } else {
+    store.clearMessages()
+  }
 }
 </script>
 
 <style scoped lang="scss">
+// ── 整体布局 ──
+.chat-layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
 .chat-view {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-width: 0;
   background: rgba(245, 247, 250, 0.97);
 }
 
@@ -248,6 +324,34 @@ function handleClear(): void {
   p {
     margin: 4px 0;
     font-size: 16px;
+  }
+
+  .welcome-title {
+    margin: 4px 0 12px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #606266;
+  }
+
+  .welcome-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 12px;
+
+    .meta-item {
+      font-size: 12px;
+      color: #909399;
+      background: #f4f4f5;
+      padding: 4px 10px;
+      border-radius: 12px;
+
+      &.meta-memory {
+        color: #67c23a;
+        background: #f0f9eb;
+      }
+    }
   }
 
   .welcome-hint {

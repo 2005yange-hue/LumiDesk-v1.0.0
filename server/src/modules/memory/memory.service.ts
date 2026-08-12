@@ -27,6 +27,10 @@ export class MemoryService {
   /**
    * 保存一轮对话（用户消息 + AI 回复）
    * 保存失败不抛出异常，不影响 SSE 响应
+   *
+   * @deprecated 对话保存逻辑已迁移至 ConversationService.saveMessages()。
+   *             MemoryService 现在仅负责长期记忆（saveMemoryEntries / getMemoriesByUser）。
+   *             请勿在此处新增对话持久化逻辑。
    */
   async saveMessages(
     userMessage: string,

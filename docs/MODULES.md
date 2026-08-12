@@ -173,6 +173,7 @@ MemorySearchResult[]  // 相似记忆列表
 **位置：** `server/src/modules/conversation/`
 
 **职责：**
+- 管理用户聊天会话
 - 会话 CRUD（创建/查询/更新/删除）
 - 历史消息分页查询
 - 聊天消息持久化（用户消息 + AI 回复）
@@ -183,17 +184,18 @@ MemorySearchResult[]  // 相似记忆列表
 
 **不负责：**
 - LLM 调用 → LLMModule
-- Memory 提取 → MemoryModule
+- Prompt 构建 → PromptContextService
+- 长期记忆提取 → MemoryModule
 - Provider 管理 → ProviderModule
 
-**输入（CRUD）：**
+**输入：**
 ```
-CreateConversationDto / UpdateConversationDto
+用户消息 / AI 回复 / CreateConversationDto / UpdateConversationDto
 ```
 
 **输出：**
 ```
-Conversation / Message[]
+Conversation / Message / 会话列表
 ```
 
 ---
