@@ -1,0 +1,51 @@
+/** API Provider 配置 */
+export interface ProviderInfo {
+  id: number
+  user_id: string
+  name: string
+  provider: string
+  base_url: string
+  api_key: string
+  model: string
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+/** 创建/编辑 Provider 参数 */
+export interface CreateProviderData {
+  name: string
+  provider: string
+  base_url: string
+  api_key: string
+  model: string
+  enabled?: boolean
+}
+
+/** 连接测试结果 */
+export interface TestConnectionResult {
+  success: boolean
+  latency: number
+  error?: string
+}
+
+/** API 模型信息 */
+export interface ModelInfo {
+  id: string
+  owned_by: string
+}
+
+/** 预设 Provider 模板 */
+export const PROVIDER_PRESETS: Array<{
+  label: string
+  provider: string
+  baseUrl: string
+  defaultModel: string
+}> = [
+  { label: 'OpenAI', provider: 'openai', baseUrl: 'https://api.openai.com/v1', defaultModel: 'gpt-4o' },
+  { label: 'DeepSeek', provider: 'deepseek', baseUrl: 'https://api.deepseek.com/v1', defaultModel: 'deepseek-chat' },
+  { label: 'SiliconFlow', provider: 'siliconflow', baseUrl: 'https://api.siliconflow.cn/v1', defaultModel: 'Qwen/Qwen2.5-7B-Instruct' },
+  { label: 'Gemini (OpenAI Compatible)', provider: 'google', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', defaultModel: 'gemini-2.0-flash' },
+  { label: 'OpenRouter', provider: 'openrouter', baseUrl: 'https://openrouter.ai/api/v1', defaultModel: 'openai/gpt-4o' },
+  { label: '自定义', provider: 'openai-compatible', baseUrl: '', defaultModel: '' }
+]

@@ -3,6 +3,23 @@
     <!-- 顶部栏 -->
     <div class="chat-header">
       <h2>AI 桌面伙伴</h2>
+      <div class="model-selector">
+        <el-select
+          v-model="selectedProviderId"
+          placeholder="选择模型"
+          size="small"
+          style="width: 220px"
+          @change="onProviderChange"
+          :disabled="providerStore.providers.length === 0"
+        >
+          <el-option
+            v-for="p in providerStore.providers"
+            :key="p.id"
+            :label="`${p.name} (${p.model})`"
+            :value="p.id"
+          />
+        </el-select>
+      </div>
       <div class="header-actions">
         <el-button text :icon="Delete" @click="handleClear" :disabled="messages.length === 0">
           清空
@@ -77,16 +94,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, watch } from 'vue'
+import { ref, nextTick, watch, onMounted } from 'vue'
 import { Delete } from '@element-plus/icons-vue'
 import { useChatStore } from '@/stores/chat.store'
+import { useProviderStore } from '@/stores/provider.store'
 import { storeToRefs } from 'pinia'
 
 const store = useChatStore()
+const providerStore = useProviderStore()
 const { messages, isStreaming, error } = storeToRefs(store)
 
 const inputText = ref('')
 const bodyRef = ref<HTMLElement | null>(null)
+const selectedProviderId = ref<number | null>(null)
+
+onMounted(async () => {
+  await providerStore.refreshActive()
+  if (providerStore.activeProviderId) {
+    selectedProviderId.value = providerStore.activeProviderId
+  }
+})
+
+function onProviderChange(id: number): void {
+  providerStore.saveActiveId(id)
+}
 
 // ──── 自动滚动到底部 ────
 watch(
@@ -169,6 +200,10 @@ function handleClear(): void {
   .header-actions {
     display: flex;
     gap: 4px;
+    -webkit-app-region: no-drag;
+  }
+
+  .model-selector {
     -webkit-app-region: no-drag;
   }
 }

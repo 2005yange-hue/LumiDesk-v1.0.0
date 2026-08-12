@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import type { ChatMessage, HistoryMessage } from '@/types/chat.types'
 import { sendMessageStream } from '@/services/chat.api'
 import { useSettingsStore } from './settings.store'
+import { useProviderStore } from './provider.store'
 
 export const useChatStore = defineStore('chat', () => {
   const messages = ref<ChatMessage[]>([])
@@ -53,9 +54,20 @@ export const useChatStore = defineStore('chat', () => {
     isStreaming.value = true
     currentStreamContent.value = ''
 
-    // 获取当前模型配置 + 角色
+    // 获取模型配置：Provider > Settings Store > .env
     const settingsStore = useSettingsStore()
-    const modelConfig = settingsStore.getModelConfig()
+    const providerStore = useProviderStore()
+    const activeProvider = providerStore.activeProvider()
+    const modelConfig = activeProvider
+      ? {
+          apiKey: activeProvider.api_key,
+          apiBaseUrl: activeProvider.base_url,
+          model: activeProvider.model,
+          temperature: settingsStore.modelSettings.temperature,
+          maxTokens: settingsStore.modelSettings.maxTokens
+        }
+      : settingsStore.getModelConfig()
+
     const characterId = settingsStore.activeCharacterId
 
     await sendMessageStream(

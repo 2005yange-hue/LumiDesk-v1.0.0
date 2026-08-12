@@ -1,24 +1,26 @@
 <template>
-  <div class="settings-view">
+  <div class="settings-page">
+    <!-- 顶部栏 -->
     <div class="settings-header">
       <el-button text @click="$router.push('/')">
         <el-icon><ArrowLeft /></el-icon>
-        返回
       </el-button>
-      <h2>设置</h2>
-      <div class="spacer"></div>
+      <h2 class="settings-title">设置</h2>
+      <div class="spacer" />
     </div>
 
+    <!-- Tab 内容区 -->
     <div class="settings-body">
-      <el-tabs v-model="activeTab" class="settings-tabs">
+      <el-tabs v-model="activeTab">
+        <el-tab-pane label="API 连接" name="provider">
+          <ProviderSettings />
+        </el-tab-pane>
         <el-tab-pane label="模型配置" name="model">
           <ModelSettings />
         </el-tab-pane>
-
         <el-tab-pane label="角色设置" name="character">
           <CharacterSettings />
         </el-tab-pane>
-
         <el-tab-pane label="关于" name="about">
           <AboutSection />
         </el-tab-pane>
@@ -33,8 +35,9 @@ import { ArrowLeft } from '@element-plus/icons-vue'
 import ModelSettings from '@/components/settings/ModelSettings.vue'
 import CharacterSettings from '@/components/settings/CharacterSettings.vue'
 import AboutSection from '@/components/settings/AboutSection.vue'
+import ProviderSettings from '@/components/settings/ProviderSettings.vue'
 
-const activeTab = ref('model')
+const activeTab = ref('provider')
 </script>
 
 <style scoped lang="scss">
