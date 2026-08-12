@@ -156,9 +156,11 @@ export class PromptContextService {
   private loadPrompt(fileName: string): string {
     try {
       const filePath = path.join(__dirname, '..', '..', 'prompts', fileName)
-      return fs.readFileSync(filePath, 'utf-8').trim()
+      const content = fs.readFileSync(filePath, 'utf-8').trim()
+      this.logger.log(`Loaded prompt: ${fileName} (${content.length} chars)`)
+      return content
     } catch (error) {
-      this.logger.warn(`Failed to load prompt: ${fileName}`)
+      this.logger.warn(`Failed to load prompt: ${fileName}, error: ${(error as Error).message}`)
       return ''
     }
   }
