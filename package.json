@@ -1,7 +1,7 @@
 {
-  "name": "ai-desktop-companion",
+  "name": "lumidesk",
   "version": "0.1.0",
-  "description": "基于多模态大语言模型与长期记忆机制的智能桌面虚拟伙伴系统",
+  "description": "LumiDesk AI desktop companion with multimodal chat, memory, Live2D, emotion, and voice support",
   "private": true,
   "main": "dist-electron/main.js",
   "scripts": {
@@ -9,8 +9,11 @@
     "dev:electron": "vite --config vite.config.ts",
     "dev:server": "cd server && npm run start:dev",
     "dev:all": "concurrently \"npm run dev:electron\" \"npm run dev:server\"",
+    "build:server": "npm --prefix server run build",
+    "prepare:electron-server": "node scripts/prepare-electron-server.mjs",
     "build": "vue-tsc --noEmit && vite build",
-    "build:electron": "npm run build && electron-builder",
+    "build:electron": "npm run build && npm run build:server && npm run prepare:electron-server && electron-builder",
+    "build:portable": "npm run build:electron && node scripts/export-portable.mjs",
     "preview": "vite preview",
     "lint": "eslint . --ext .ts,.vue --fix",
     "format": "prettier --write \"src/**/*.{ts,vue,scss}\""

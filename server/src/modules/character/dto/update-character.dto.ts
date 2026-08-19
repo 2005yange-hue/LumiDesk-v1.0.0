@@ -1,8 +1,6 @@
-import { IsString, IsOptional, IsNumber, IsArray, Min, Max } from 'class-validator'
+import { IsArray, IsNumber, IsObject, IsOptional, IsString, Max, Min } from 'class-validator'
 
-/**
- * 手工定义 Partial 类型，避免额外依赖
- */
+/** 手工定义 Partial 类型，避免额外依赖。 */
 export class UpdateCharacterDto {
   @IsString()
   @IsOptional()
@@ -39,4 +37,16 @@ export class UpdateCharacterDto {
   @IsString({ each: true })
   @IsOptional()
   dislikes?: string[]
+
+  @IsObject()
+  @IsOptional()
+  addressingRules?: Record<string, string>
+
+  @IsString()
+  @IsOptional()
+  openingMessage?: string
+
+  @IsObject()
+  @IsOptional()
+  appearance?: Record<string, string>
 }

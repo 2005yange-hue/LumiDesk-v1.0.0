@@ -1,11 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { LLMService } from '../llm/llm.service'
 import { RuntimeModelConfig, ResolvedModelConfig } from '../llm/llm-types'
+import { MEMORY_TYPES, MemoryType } from './entities/memory-entry.entity'
+import * as fs from 'fs'
+import * as path from 'path'
 
 export interface MemoryEntryData {
-  type: string
+  type: MemoryType
   content: string
   importance: number
+  confidence: number
 }
 
 /**
@@ -17,8 +21,11 @@ export interface MemoryEntryData {
 @Injectable()
 export class MemoryExtractorService {
   private readonly logger = new Logger(MemoryExtractorService.name)
+  private readonly extractorPrompt: string
 
-  constructor(private readonly llmService: LLMService) {}
+  constructor(private readonly llmService: LLMService) {
+    this.extractorPrompt = this.loadPrompt()
+  }
 
   /**
    * 从用户消息中提取结构化记忆
@@ -33,10 +40,15 @@ export class MemoryExtractorService {
     this.logger.log(`[MemoryExtractor] Start extracting from: "${userMessage.substring(0, 80)}"`)
 
     try {
+      if (!this.extractorPrompt) {
+        this.logger.warn('[MemoryExtractor] Prompt unavailable, extraction skipped')
+        return []
+      }
+
       const response = await this.llmService.chat([
         {
           role: 'system',
-          content: EXTRACTOR_SYSTEM_PROMPT
+          content: this.extractorPrompt
         },
         {
           role: 'user',
@@ -67,14 +79,7 @@ export class MemoryExtractorService {
       }
 
       // 校验数据格式
-      const valid = entries.filter(
-        (e) =>
-          e.type &&
-          e.content &&
-          typeof e.importance === 'number' &&
-          e.importance >= 0 &&
-          e.importance <= 1
-      )
+      const valid = entries.filter((entry): entry is MemoryEntryData => this.isValidEntry(entry))
 
       if (valid.length > 0) {
         this.logger.log(`[MemoryExtractor] Extracted ${valid.length} memories: ${valid.map((m) => `[${m.type}] ${m.content}`).join(', ')}`)
@@ -137,39 +142,35 @@ export class MemoryExtractorService {
 
     return null
   }
+
+  private isValidEntry(entry: unknown): entry is MemoryEntryData {
+    if (!entry || typeof entry !== 'object') return false
+
+    const candidate = entry as Partial<MemoryEntryData>
+    return (
+      typeof candidate.type === 'string' &&
+      MEMORY_TYPES.includes(candidate.type as MemoryType) &&
+      typeof candidate.content === 'string' &&
+      candidate.content.trim().length > 0 &&
+      candidate.content.trim().length <= 80 &&
+      typeof candidate.importance === 'number' &&
+      candidate.importance >= 0 &&
+      candidate.importance <= 1 &&
+      typeof candidate.confidence === 'number' &&
+      candidate.confidence >= 0 &&
+      candidate.confidence <= 1
+    )
+  }
+
+  private loadPrompt(): string {
+    try {
+      const filePath = path.join(__dirname, '..', '..', 'prompts', 'memory-extraction.txt')
+      const content = fs.readFileSync(filePath, 'utf-8').trim()
+      this.logger.log(`[MemoryExtractor] Loaded prompt (${content.length} chars)`)
+      return content
+    } catch (error) {
+      this.logger.warn(`Failed to load memory extraction prompt: ${(error as Error).message}`)
+      return ''
+    }
+  }
 }
-
-const EXTRACTOR_SYSTEM_PROMPT = `你是「AI 长期记忆提取模块」。你的唯一任务是分析用户消息，判断是否包含值得长期记住的信息，并以严格的 JSON 数组格式返回。
-
-==== 提取规则 ====
-
-应该提取（长期有效的信息）：
-- fact: 用户事实信息（名字、职业、年龄、学历、所在地、学习/工作背景等）
-- preference: 用户偏好（喜欢的编程语言、工具、游戏、食物、音乐、颜色等）
-- habit: 用户习惯（编程习惯、工作节奏、作息、沟通风格等）
-- interest: 用户兴趣（技术方向、爱好、关注领域等）
-
-不应该提取（一次性 / 临时 / 无长期价值）：
-- 临时问题（"这个 bug 怎么修"、"帮我写个函数"）
-- 一次性需求（"写个排序算法"、"翻译这段文字"）
-- 普通闲聊（"你好"、"今天天气不错"、"谢谢"）
-- 代码片段、错误日志、调试信息及其内容
-- 对当前对话流程的指令性请求
-
-==== 输出格式（绝对严格）====
-
-你必须且只能输出一个 JSON 数组，不要有任何解释文字、前言、后缀或 markdown 标记。
-
-格式示例：
-[{"type":"preference","content":"用户喜欢使用 C++ 开发游戏","importance":0.8},{"type":"fact","content":"用户的名字是小明","importance":0.9}]
-
-字段说明：
-- type: 必须是 "fact" | "preference" | "habit" | "interest" 之一
-- content: 简洁的一句话描述（中文，≤50字）
-- importance: 0-1 的浮点数，表示这条信息的重要程度
-  0.9-1.0: 核心身份信息（姓名、职业等）
-  0.7-0.8: 明确偏好或长期目标
-  0.4-0.6: 一般兴趣或习惯
-  0.1-0.3: 弱信号信息
-
-如果没有值得长期记忆的信息，你必须返回：[]`

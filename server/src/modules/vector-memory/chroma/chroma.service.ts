@@ -10,6 +10,14 @@ export interface ChromaMemoryPayload {
   metadata: Record<string, unknown>
 }
 
+/** ChromaDB 记忆向量更新参数 */
+export interface ChromaMemoryUpdatePayload {
+  id: string
+  content?: string
+  embedding?: number[]
+  metadata?: Record<string, unknown>
+}
+
 /** ChromaDB 搜索返回 */
 export interface ChromaSearchResult {
   id: string
@@ -26,11 +34,15 @@ export interface ChromaSearchResult {
 export class ChromaService {
   private readonly logger = new Logger(ChromaService.name)
   private readonly baseUrl: string
+  private readonly enabled: boolean
   private collectionId: string | null = null
 
   constructor(private readonly configService: ConfigService) {
-    this.baseUrl = this.configService.get<string>('CHROMA_URL', 'http://localhost:8000')
+    this.baseUrl = this.configService.get<string>('CHROMA_URL', 'http://localhost:8000').replace(/\/$/, '')
+    this.enabled = this.configService.get<string>('VECTOR_DB_PROVIDER', 'disabled').toLowerCase() === 'chroma'
   }
+
+  isEnabled(): boolean { return this.enabled }
 
   private get apiVersion(): string {
     return this.configService.get<string>('CHROMA_API_VERSION', 'v2')
@@ -101,13 +113,43 @@ export class ChromaService {
     this.logger.log(`[Chroma] Stored vector for memory: ${payload.id}`)
   }
 
+  /** 更新已有记忆向量的文档、Embedding 或 metadata。 */
+  async updateMemory(payload: ChromaMemoryUpdatePayload): Promise<void> {
+    const collectionId = await this.ensureCollection()
+    const body: Record<string, unknown> = { ids: [payload.id] }
+
+    if (payload.embedding) body.embeddings = [payload.embedding]
+    if (payload.content !== undefined) body.documents = [payload.content]
+    if (payload.metadata !== undefined) body.metadatas = [payload.metadata]
+
+    await this.fetchJson(`${this.collectionsBasePath}/${collectionId}/update`, {
+      method: 'POST',
+      body: JSON.stringify(body)
+    })
+
+    this.logger.log(`[Chroma] Updated vector for memory: ${payload.id}`)
+  }
+
+  /** 删除已有记忆向量。 */
+  async deleteMemory(id: string): Promise<void> {
+    const collectionId = await this.ensureCollection()
+
+    await this.fetchJson(`${this.collectionsBasePath}/${collectionId}/delete`, {
+      method: 'POST',
+      body: JSON.stringify({ ids: [id] })
+    })
+
+    this.logger.log(`[Chroma] Deleted vector for memory: ${id}`)
+  }
+
   /**
    * 语义相似度搜索
    */
   async searchSimilar(
     queryEmbedding: number[],
     userId: string,
-    topK = 5
+    topK = 5,
+    characterId?: string
   ): Promise<ChromaSearchResult[]> {
     const collectionId = await this.ensureCollection()
 
@@ -121,7 +163,9 @@ export class ChromaService {
       body: JSON.stringify({
         query_embeddings: [queryEmbedding],
         n_results: topK,
-        where: { userId },
+        where: characterId
+          ? { $and: [{ userId }, { characterId }] }
+          : { userId },
         include: ['documents', 'metadatas', 'distances']
       })
     })

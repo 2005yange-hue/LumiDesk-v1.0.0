@@ -5,6 +5,7 @@ import renderer from 'vite-plugin-electron-renderer'
 import { resolve } from 'path'
 
 export default defineConfig({
+  publicDir: 'resources',
   plugins: [
     vue(),
     electron([
@@ -21,8 +22,8 @@ export default defineConfig({
       },
       {
         entry: 'electron/preload.ts',
-        onstart(options) {
-          options.reload()
+        onstart({ reload }) {
+          if (process.electronApp) reload()
         },
         vite: {
           build: {
@@ -52,11 +53,16 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true
+      },
+      '/uploads': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
       }
     }
   },
   build: {
     outDir: 'dist',
-    emptyOutDir: true
+    emptyOutDir: true,
+    copyPublicDir: false
   }
 })

@@ -1,7 +1,7 @@
 <template>
   <div class="tab-content">
     <div class="about-section">
-      <p class="app-name">AI 桌面伙伴</p>
+      <p class="app-name">LumiDesk</p>
       <p class="app-version">版本 0.1.0</p>
       <p class="app-desc">基于多模态大语言模型与长期记忆机制的智能桌面虚拟伙伴系统</p>
     </div>

@@ -15,6 +15,10 @@ export class Message {
   @Column({ type: 'text' })
   content: string
 
+  /** 同一轮用户消息与助手回复共享的稳定标识。旧消息为空以保持兼容。 */
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  turn_id: string | null
+
   @Column({ type: 'int', nullable: true, default: null })
   token_count: number | null
 

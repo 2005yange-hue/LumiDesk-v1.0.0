@@ -21,6 +21,8 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, WrappedRespons
 
     return next.handle().pipe(
       map((data) => {
+        const contentType = String(response.getHeader('Content-Type') || '')
+        if (contentType.startsWith('audio/')) return data as WrappedResponse<T>
         // SSE 流式响应不包装
         if (response.getHeader('Content-Type') === 'text/event-stream') {
           return data

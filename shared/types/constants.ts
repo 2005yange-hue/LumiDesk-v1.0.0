@@ -1,6 +1,6 @@
 // 共享常量定义
 
-export const APP_NAME = 'AI桌面伙伴'
+export const APP_NAME = 'LumiDesk'
 export const APP_VERSION = '0.1.0'
 
 // 情绪状态枚举

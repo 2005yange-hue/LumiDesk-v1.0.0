@@ -1,8 +1,9 @@
-import { IsString, IsArray, IsOptional } from 'class-validator'
+import { IsIn, IsString } from 'class-validator'
 
 /** 历史记录中的单条消息 */
 export class HistoryMessageDto {
   @IsString()
+  @IsIn(['system', 'user', 'assistant'])
   role: 'system' | 'user' | 'assistant'
 
   @IsString()

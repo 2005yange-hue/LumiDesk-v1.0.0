@@ -66,7 +66,7 @@ export const useProviderStore = defineStore('provider', () => {
   }
 
   // ──── 加载 Provider 列表 ────
-  async function fetchProviders(): Promise<void> {
+  async function fetchProviders(): Promise<boolean> {
     loading.value = true
     try {
       providers.value = await getProviders()
@@ -76,8 +76,10 @@ export const useProviderStore = defineStore('provider', () => {
       if (enabled && activeProviderId.value !== enabled.id) {
         saveActiveId(enabled.id)
       }
+      return true
     } catch {
       providers.value = []
+      return false
     } finally {
       loading.value = false
     }
@@ -214,7 +216,7 @@ export const useProviderStore = defineStore('provider', () => {
   }
 
   /** 刷新 Provider 状态（聊天页面切换时调用） */
-  async function refreshActive(): Promise<void> {
+  async function refreshActive(): Promise<boolean> {
     try {
       const active = await getActiveProvider()
       if (active) {
@@ -223,8 +225,9 @@ export const useProviderStore = defineStore('provider', () => {
           providers.value = [active, ...providers.value]
         }
       }
+      return true
     } catch {
-      // 静默处理
+      return false
     }
   }
 

@@ -1,9 +1,8 @@
 import type { Character } from '@shared/types/character'
 
-/** 角色数据（重导出共享规范） */
+/** 角色数据（重导出共享规范）。 */
 export type CharacterData = Character
 
-/** 创建角色请求 */
 export interface CreateCharacterRequest {
   name: string
   age?: number
@@ -13,7 +12,9 @@ export interface CreateCharacterRequest {
   speakingStyle?: string
   likes?: string[]
   dislikes?: string[]
+  addressingRules?: CharacterData['addressingRules']
+  openingMessage?: string
+  appearance?: CharacterData['appearance']
 }
 
-/** 更新角色请求 */
 export type UpdateCharacterRequest = Partial<CreateCharacterRequest>

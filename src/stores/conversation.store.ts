@@ -52,7 +52,7 @@ export const useConversationStore = defineStore('conversation', () => {
   }
 
   // ──── 加载会话列表（含当前会话状态调和） ────
-  async function fetchList(): Promise<void> {
+  async function fetchList(): Promise<boolean> {
     loading.value = true
     try {
       let data: ConversationInfo[] | null = null
@@ -73,19 +73,32 @@ export const useConversationStore = defineStore('conversation', () => {
 
       conversationList.value = data
       reconcileSelection()
+      return true
     } catch (err) {
       console.error('[Conversation] fetchList error', err)
       // 失败时保留已有列表，避免启动失败后误清空已加载数据
+      return false
     } finally {
       loading.value = false
     }
   }
 
-  // ──── 启动初始化：App 启动时自动调用一次 fetchList ────
-  let initPromise: Promise<void> | null = null
-  async function init(): Promise<void> {
+  // ──── 启动初始化：由引导页（InitializationView）调用，返回是否成功 ────
+  let initPromise: Promise<boolean> | null = null
+  async function init(): Promise<boolean> {
     if (!initPromise) {
-      initPromise = fetchList()
+      initPromise = fetchList().then(
+        (ok) => {
+          // 失败时重置，允许「重新初始化」再次重试
+          if (!ok) initPromise = null
+          return ok
+        },
+        () => {
+          // fetchList 异常（reject）时同样释放 initPromise，避免重试永远返回已拒绝的 Promise
+          initPromise = null
+          return false
+        }
+      )
     }
     return initPromise
   }
@@ -127,6 +140,9 @@ export const useConversationStore = defineStore('conversation', () => {
   }
 
   // ──── 加载会话历史消息 ────
+  // 职责单一：仅拉取消息数据，不修改 currentConversationId。
+  // 当前选中会话由 selectConversation()（点击）/ reconcileSelection()（删除/初始化）控制，
+  // 避免异步请求晚返回时用旧会话 id 覆盖最新选择。
   async function loadMessages(
     id: string,
     page = 1,
@@ -135,7 +151,6 @@ export const useConversationStore = defineStore('conversation', () => {
     messagesLoading.value = true
     try {
       const result = await getMessages(id, page, limit)
-      saveCurrentId(id)
       return result
     } catch {
       return null

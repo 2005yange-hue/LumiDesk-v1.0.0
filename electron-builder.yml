@@ -1,19 +1,30 @@
-appId: com.ai-companion.desktop
-productName: AI桌面伙伴
+appId: com.lumidesk.desktop
+productName: LumiDesk
 copyright: Copyright © 2026
 
 directories:
-  output: release
+  output: .build/release
   buildResources: resources
 
 files:
   - dist/**/*
   - dist-electron/**/*
 
+extraResources:
+  - from: resources/live2d
+    to: live2d
+  - from: resources/live2d-runtime
+    to: live2d-runtime
+  - from: .electron-server/dist
+    to: server/dist
+  - from: .electron-server/node_modules
+    to: server/node_modules
+
 win:
+  # CI/沙盒环境通常没有创建符号链接的权限；应用本身不依赖签名编辑。
+  signAndEditExecutable: false
   target:
     - nsis
-  icon: resources/icons/icon.ico
 
 nsis:
   oneClick: false
@@ -23,9 +34,7 @@ nsis:
 mac:
   target:
     - dmg
-  icon: resources/icons/icon.icns
 
 linux:
   target:
     - AppImage
-  icon: resources/icons

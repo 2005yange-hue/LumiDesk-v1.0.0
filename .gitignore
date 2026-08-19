@@ -10,6 +10,17 @@ server/node_modules/
 dist/
 dist-electron/
 server/dist/
+.electron-server/
+release/
+release-*/
+.build/
+LumiDesk Portable/
+LumiDesk Setup *.exe
+server/data/*.sqlite
+server/data/*.sqlite-*
+server/data/audio/*.yaml
+server/data/audio/*
+server/data/avatars/
 
 # TypeScript cache
 *.tsbuildinfo
@@ -20,3 +31,30 @@ server/data/*.json
 # Logs
 *.log
 node_modules
+*.tmp
+*.bak
+*.wav
+*.mp3
+*.ogg
+*.flac
+*.m4a
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Local model and verification artifacts
+AI_CONTEXT.md
+GPT-SoVITS-v2pro-20250604/
+Mujica_若葉睦_v2pp.ckpt
+debug-panel-*.png
+live2d-debug-*.png
+voice-system-sandbox*.png
+release-sandbox-*.png
+release-exe-verified.png
+vite-sandbox.log
+server/audit-schema.sqlite

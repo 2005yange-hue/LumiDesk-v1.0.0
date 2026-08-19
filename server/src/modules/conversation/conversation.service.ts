@@ -1,209 +1,174 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { In, Repository } from 'typeorm'
 import { randomUUID } from 'crypto'
 import { Conversation } from '../memory/entities/conversation.entity'
 import { Message } from '../memory/entities/message.entity'
-import type { CreateConversationDto } from './dto/create-conversation.dto'
-import type { UpdateConversationDto } from './dto/update-conversation.dto'
+import { EmotionRecord } from '../emotion/entities/emotion-record.entity'
+import { CreateConversationDto } from './dto/create-conversation.dto'
+import { UpdateConversationDto } from './dto/update-conversation.dto'
+import { ConversationRebuildService } from './conversation-rebuild.service'
+
+export interface ConversationMutationResult {
+  content: string
+  deletedCount: number
+  remainingCount: number
+}
 
 @Injectable()
 export class ConversationService {
   private readonly logger = new Logger(ConversationService.name)
+  private currentConversationId: string | null = null
 
   constructor(
-    @InjectRepository(Conversation)
-    private readonly conversationRepo: Repository<Conversation>,
-    @InjectRepository(Message)
-    private readonly messageRepo: Repository<Message>
+    @InjectRepository(Conversation) private readonly conversationRepo: Repository<Conversation>,
+    @InjectRepository(Message) private readonly messageRepo: Repository<Message>,
+    private readonly rebuildService: ConversationRebuildService
   ) {}
 
-  // ====================================================
-  // Conversation CRUD
-  // ====================================================
-
-  /** 获取用户的所有会话列表（按更新时间倒序） */
   async listConversations(userId = 'default'): Promise<Conversation[]> {
-    return this.conversationRepo.find({
-      where: { user_id: userId },
-      order: { updated_at: 'DESC' },
-      select: ['id', 'title', 'message_count', 'created_at', 'updated_at']
-    })
+    return this.conversationRepo.find({ where: { user_id: userId }, order: { updated_at: 'DESC' }, select: ['id', 'title', 'message_count', 'created_at', 'updated_at'] })
   }
 
-  /** 获取单个会话 */
   async getConversation(id: string): Promise<Conversation> {
-    const conversation = await this.conversationRepo.findOne({
-      where: { id },
-      select: ['id', 'user_id', 'character_id', 'title', 'message_count', 'created_at', 'updated_at']
-    })
-    if (!conversation) throw new NotFoundException(`会话 ${id} 不存在`)
+    const conversation = await this.conversationRepo.findOne({ where: { id } })
+    if (!conversation) throw new NotFoundException('会话 ' + id + ' 不存在')
     return conversation
   }
 
-  /** 创建新会话 */
   async createConversation(dto: CreateConversationDto, userId = 'default'): Promise<Conversation> {
-    const id = randomUUID()
     const now = new Date()
-    const record = this.conversationRepo.create({
-      id,
-      user_id: userId,
-      message_count: 0,
-      created_at: now,
-      updated_at: now,
-      ...(dto.title !== undefined ? { title: dto.title } : {})
-    })
-    const saved = await this.conversationRepo.save(record)
-    this.logger.log(`Created conversation: ${saved.id}`)
-    return saved
+    return this.conversationRepo.save(this.conversationRepo.create({ id: randomUUID(), user_id: userId, message_count: 0, created_at: now, updated_at: now, ...(dto.title !== undefined ? { title: dto.title } : {}) }))
   }
 
-  /** 更新会话标题 */
   async updateConversation(id: string, dto: UpdateConversationDto): Promise<Conversation> {
-    await this.getConversation(id) // 确保存在
+    await this.getConversation(id)
     await this.conversationRepo.update(id, { title: dto.title })
-    this.logger.log(`Updated conversation title: ${id}`)
     return this.getConversation(id)
   }
 
-  /**
-   * 删除会话及其所有关联消息
-   * 使用数据库事务保证原子性
-   */
   async deleteConversation(id: string): Promise<void> {
-    await this.getConversation(id) // 确保存在
-
+    await this.getConversation(id)
+    await this.rebuildService.removeConversationArtifacts(id)
     await this.conversationRepo.manager.transaction(async (manager) => {
+      await manager.delete(EmotionRecord, { conversation_id: id })
       await manager.delete(Message, { conversation_id: id })
       await manager.delete(Conversation, { id })
     })
-
-    this.logger.log(`Deleted conversation and messages: ${id}`)
   }
 
-  // ====================================================
-  // Message
-  // ====================================================
-
-  /** 当前活跃的会话 ID（服务重启后重置） */
-  private currentConversationId: string | null = null
-
-  /**
-   * 获取或创建当前活跃会话
-   */
   private async ensureConversation(): Promise<string> {
-    if (!this.currentConversationId) {
-      const conv = await this.createConversation({})
-      this.currentConversationId = conv.id
-    }
+    if (!this.currentConversationId) this.currentConversationId = (await this.createConversation({})).id
     return this.currentConversationId
   }
 
-  /** 分页获取会话的历史消息 */
-  async getMessages(
-    conversationId: string,
-    page = 1,
-    limit = 50
-  ): Promise<{ messages: Message[]; total: number }> {
-    await this.getConversation(conversationId) // 确保存在
-
-    const [messages, total] = await this.messageRepo.findAndCount({
-      where: { conversation_id: conversationId },
-      order: { created_at: 'ASC' },
-      skip: (page - 1) * limit,
-      take: limit,
-      select: ['id', 'role', 'content', 'token_count', 'created_at']
-    })
-
-    return { messages, total }
+  async getMessages(conversationId: string, page = 1, limit = 50): Promise<{ messages: Message[]; total: number }> {
+    await this.getConversation(conversationId)
+    const [messages, total] = await this.messageRepo.findAndCount({ where: { conversation_id: conversationId }, order: { created_at: 'DESC', id: 'DESC' }, skip: (page - 1) * limit, take: limit })
+    return { messages: messages.reverse(), total }
   }
 
-  /**
-   * 保存一轮对话（用户消息 + AI 回复）
-   * 自动更新 conversation.message_count（increment +2）
-   * 保存失败不抛出异常，不影响 SSE 响应
-   */
-  async saveMessages(
-    conversationId: string,
-    userMessage: string,
-    assistantReply: string
-  ): Promise<void> {
+  async getAllMessages(conversationId: string): Promise<Message[]> {
+    return this.messageRepo.find({ where: { conversation_id: conversationId }, order: { created_at: 'ASC', id: 'ASC' } })
+  }
+
+  async saveMessages(conversationId: string, userMessage: string, assistantReply: string, characterId?: string): Promise<{ userMessageId: string; assistantMessageId: string } | null> {
     try {
+      const now = new Date()
+      const turnId = randomUUID()
+      const userMessageId = randomUUID()
+      const assistantMessageId = randomUUID()
       await this.messageRepo.insert([
-        {
-          id: randomUUID(),
-          conversation_id: conversationId,
-          role: 'user',
-          content: userMessage,
-          token_count: null,
-          created_at: new Date()
-        },
-        {
-          id: randomUUID(),
-          conversation_id: conversationId,
-          role: 'assistant',
-          content: assistantReply,
-          token_count: null,
-          created_at: new Date()
-        }
+        { id: userMessageId, conversation_id: conversationId, role: 'user', content: userMessage, turn_id: turnId, token_count: null, created_at: now },
+        { id: assistantMessageId, conversation_id: conversationId, role: 'assistant', content: assistantReply, turn_id: turnId, token_count: null, created_at: new Date(now.getTime() + 1) }
       ])
-
-      // 缓存字段：使用 increment 避免 COUNT 查询
       await this.conversationRepo.increment({ id: conversationId }, 'message_count', 2)
-
-      // 首次聊天时自动生成标题（标题为默认空值时）
+      const conversation = await this.conversationRepo.findOne({ where: { id: conversationId } })
+      if (characterId && conversation && !conversation.character_id) {
+        await this.conversationRepo.update(conversationId, { character_id: characterId })
+      }
       await this.generateTitleIfNeeded(conversationId, userMessage)
-
-      this.logger.debug(`Saved 2 messages to conversation ${conversationId}`)
+      return { userMessageId, assistantMessageId }
     } catch (error) {
       this.logger.warn('Failed to save messages (non-blocking):', error)
+      return null
     }
   }
 
-  /**
-   * 若会话标题为空（默认值），则根据首条用户消息生成标题
-   * 不调用 LLM，纯文本截断处理
-   */
-  private async generateTitleIfNeeded(conversationId: string, firstMessage: string): Promise<void> {
-    try {
-      const conversation = await this.conversationRepo.findOne({
-        where: { id: conversationId }
-      })
-      if (!conversation || conversation.title) return
+  async saveCurrentMessages(userMessage: string, assistantReply: string, conversationId?: string, characterId?: string): Promise<{ userMessageId: string; assistantMessageId: string } | null> {
+    return this.saveMessages(conversationId ?? await this.ensureConversation(), userMessage, assistantReply, characterId)
+  }
 
-      const title = this.buildTitle(firstMessage)
-      if (!title) return
+  async prepareEdit(conversationId: string, messageId: string, content: string): Promise<ConversationMutationResult> {
+    const messages = await this.requireMessages(conversationId)
+    const index = messages.findIndex((message) => message.id === messageId)
+    if (index < 0) throw new NotFoundException('消息不存在')
+    if (messages[index].role !== 'user') throw new BadRequestException('只能编辑用户消息')
+    return this.deleteFromIndex(conversationId, messages, index, content.trim())
+  }
 
-      await this.conversationRepo.update(conversationId, { title })
-      this.logger.log(`Generated title for conversation ${conversationId}: ${title}`)
-    } catch (error) {
-      this.logger.warn('Failed to generate conversation title (non-blocking):', error)
+  async prepareRegenerate(conversationId: string, messageId: string): Promise<ConversationMutationResult> {
+    const messages = await this.requireMessages(conversationId)
+    const index = messages.findIndex((message) => message.id === messageId)
+    if (index < 0) throw new NotFoundException('消息不存在')
+    if (messages[index].role !== 'assistant') throw new BadRequestException('只能重新生成角色回复')
+    const start = this.findTurnStart(messages, index)
+    if (start < 0) throw new BadRequestException('找不到对应的用户消息')
+    return this.deleteFromIndex(conversationId, messages, start, messages[start].content)
+  }
+
+  async deleteFromMessage(conversationId: string, messageId: string): Promise<ConversationMutationResult> {
+    const messages = await this.requireMessages(conversationId)
+    const index = messages.findIndex((message) => message.id === messageId)
+    if (index < 0) throw new NotFoundException('消息不存在')
+    const start = messages[index].role === 'assistant' ? this.findTurnStart(messages, index) : index
+    return this.deleteFromIndex(conversationId, messages, Math.max(0, start), '')
+  }
+
+  async exportConversation(conversationId: string, format: 'markdown' | 'json'): Promise<{ filename: string; content: string; mimeType: string }> {
+    const conversation = await this.getConversation(conversationId)
+    const messages = await this.getAllMessages(conversationId)
+    const title = (conversation.title || 'conversation').replace(/[\\/:*?"<>|]/g, '_').slice(0, 60)
+    if (format === 'json') return { filename: title + '.json', mimeType: 'application/json;charset=utf-8', content: JSON.stringify({ conversation, messages }, null, 2) }
+    const content = ['# ' + (conversation.title || '未命名会话'), '', ...messages.map((message) => '## ' + (message.role === 'user' ? '用户' : '角色') + '\n\n' + message.content + '\n')].join('\n')
+    return { filename: title + '.md', mimeType: 'text/markdown;charset=utf-8', content }
+  }
+
+  private async requireMessages(conversationId: string): Promise<Message[]> {
+    await this.getConversation(conversationId)
+    const messages = await this.getAllMessages(conversationId)
+    if (!messages.length) throw new BadRequestException('会话没有可操作的消息')
+    return messages
+  }
+
+  private findTurnStart(messages: Message[], index: number): number {
+    const target = messages[index]
+    if (target.turn_id) {
+      const matched = messages.findIndex((message) => message.turn_id === target.turn_id && message.role === 'user')
+      if (matched >= 0) return matched
     }
+    for (let cursor = index - 1; cursor >= 0; cursor--) if (messages[cursor].role === 'user') return cursor
+    return -1
   }
 
-  /**
-   * 从用户消息生成标题：
-   * - 去除换行
-   * - 去除首尾空格
-   * - 最大长度 20 字符，超出追加 "..."
-   * - 空消息返回空字符串（不处理）
-   */
-  private buildTitle(message: string): string {
-    const cleaned = message.replace(/\r?\n/g, ' ').trim()
-    if (!cleaned) return ''
-
-    const MAX_TITLE_LENGTH = 20
-    return cleaned.length > MAX_TITLE_LENGTH
-      ? cleaned.slice(0, MAX_TITLE_LENGTH) + '...'
-      : cleaned
+  private async deleteFromIndex(conversationId: string, messages: Message[], start: number, content: string): Promise<ConversationMutationResult> {
+    const deleted = messages.slice(start)
+    const deletedUserMessageIds = deleted.filter((message) => message.role === 'user').map((message) => message.id)
+    await this.conversationRepo.manager.transaction(async (manager) => {
+      if (deletedUserMessageIds.length) {
+        await manager.delete(EmotionRecord, { conversation_id: conversationId, user_message_id: In(deletedUserMessageIds) })
+      }
+      await manager.delete(Message, { id: In(deleted.map((message) => message.id)) })
+      await manager.update(Conversation, { id: conversationId }, { message_count: start, summary: null, summary_message_count: 0 })
+    })
+    this.rebuildService.scheduleRebuild(conversationId)
+    return { content, deletedCount: deleted.length, remainingCount: start }
   }
 
-  /**
-   * 保存当前活跃会话的一轮对话
-   * 自动确保活跃会话存在（服务重启后首次调用会创建新会话）
-   */
-  async saveCurrentMessages(userMessage: string, assistantReply: string): Promise<void> {
-    const conversationId = await this.ensureConversation()
-    await this.saveMessages(conversationId, userMessage, assistantReply)
+  private async generateTitleIfNeeded(conversationId: string, userMessage: string): Promise<void> {
+    const conversation = await this.conversationRepo.findOne({ where: { id: conversationId } })
+    if (!conversation || conversation.title) return
+    const cleaned = userMessage.replace(/\r?\n/g, ' ').trim()
+    if (cleaned) await this.conversationRepo.update(conversationId, { title: cleaned.length > 20 ? cleaned.slice(0, 20) + '...' : cleaned })
   }
 }

@@ -8,8 +8,11 @@ import { ContextWindowManager } from '../context-window/context-window.manager'
 import { MemoryExtractorService } from '../memory/memory-extractor.service'
 import { MemoryService } from '../memory/memory.service'
 import { ProviderService } from '../provider/provider.service'
+import { ConversationSummaryService } from '../conversation-summary/conversation-summary.service'
 import { SendMessageDto } from './dto/send-message.dto'
 import { HistoryMessageDto } from './dto/message-response.dto'
+import { RelationshipInteractionService } from '../character-state/relationship-interaction.service'
+import { EmotionService } from '../emotion/emotion.service'
 
 @Injectable()
 export class ChatService {
@@ -22,6 +25,9 @@ export class ChatService {
     private readonly memoryExtractor: MemoryExtractorService,
     private readonly memoryService: MemoryService,
     private readonly providerService: ProviderService,
+    private readonly conversationSummary: ConversationSummaryService,
+    private readonly relationshipInteractions: RelationshipInteractionService,
+    private readonly emotionService: EmotionService,
     private readonly configService: ConfigService
   ) {}
 
@@ -45,7 +51,8 @@ export class ChatService {
     dto: SendMessageDto,
     history: HistoryMessageDto[] = [],
     modelConfig?: Partial<RuntimeModelConfig>,
-    characterId?: string
+    characterId?: string,
+    conversationId?: string
   ): Promise<AsyncIterable<LLMStreamChunk>> {
     this.logger.log(`Received message: ${dto.content.substring(0, 50)}...`)
 
@@ -64,13 +71,21 @@ export class ChatService {
       `temperature=${resolvedConfig.temperature}`
     )
 
-    // fire-and-forget：异步提取长期记忆
-    this.extractMemoriesFromMessage(dto.content, resolvedConfig, modelConfig)
+    // 已持久化会话优先由摘要模块提供上下文；没有会话或服务降级时才使用前端历史。
+    const conversationContext = await this.conversationSummary.getContext(
+      conversationId,
+      resolvedConfig,
+      modelConfig
+    )
+    const contextHistory = conversationContext?.history ?? this.truncateHistory(history)
 
-    // 截断历史消息到最近 N 条
-    const truncatedHistory = this.truncateHistory(history)
-
-    let messages = await this.promptContext.buildMessages(dto.content, truncatedHistory, characterId)
+    let messages = await this.promptContext.buildMessages(
+      dto.content,
+      contextHistory,
+      characterId,
+      conversationContext?.summary,
+      conversationContext?.historyLimit
+    )
 
     // 上下文窗口检测与裁剪
     const modelName = resolvedConfig.model
@@ -81,10 +96,66 @@ export class ChatService {
     return this.llmService.chatStream(messages, resolvedConfig, modelConfig)
   }
 
+  async recordCompletedInteraction(
+    characterId: string | undefined,
+    userMessage: string,
+    assistantReply: string,
+    conversationId: string | undefined,
+    userMessageId: string,
+    assistantMessageId: string
+  ): Promise<void> {
+    if (!conversationId) return
+    try {
+      await this.relationshipInteractions.record({
+        characterId,
+        conversationId,
+        userMessageId,
+        assistantMessageId,
+        userMessage,
+        assistantReply
+      })
+    } catch (error) {
+      this.logger.warn('Failed to record relationship interaction (non-blocking):', error)
+    }
+  }
+
+  async extractMemoriesForCompletedInteraction(
+    userMessage: string,
+    modelConfig: Partial<RuntimeModelConfig> | undefined,
+    characterId: string | undefined,
+    conversationId: string | undefined,
+    userMessageId: string,
+    assistantMessageId: string
+  ): Promise<void> {
+    const resolvedConfig = await this.resolveModelConfig(modelConfig)
+    this.extractMemoriesFromMessage(userMessage, resolvedConfig, modelConfig, characterId, conversationId, userMessageId, assistantMessageId)
+  }
+
   /**
    * 解析模型配置：providerId(前端) > default Provider > .env
    * 返回 ResolvedModelConfig（含完整 api_key）
    */
+  async analyzeEmotionForCompletedInteraction(
+    userMessage: string,
+    modelConfig: Partial<RuntimeModelConfig> | undefined,
+    characterId: string | undefined,
+    conversationId: string | undefined,
+    userMessageId: string
+  ): Promise<void> {
+    try {
+      const resolvedConfig = await this.resolveModelConfig(modelConfig)
+      await this.emotionService.analyzeCompletedMessage(
+        userMessage,
+        resolvedConfig,
+        modelConfig,
+        characterId,
+        conversationId,
+        userMessageId
+      )
+    } catch (error) {
+      this.logger.warn('Emotion analysis pipeline failed (non-blocking):', error)
+    }
+  }
   private async resolveModelConfig(
     modelConfig?: Partial<RuntimeModelConfig>
   ): Promise<ResolvedModelConfig> {
@@ -197,7 +268,11 @@ export class ChatService {
   private extractMemoriesFromMessage(
     userMessage: string,
     resolvedConfig: ResolvedModelConfig,
-    runtimeConfig?: Partial<RuntimeModelConfig>
+    runtimeConfig?: Partial<RuntimeModelConfig>,
+    characterId?: string,
+    conversationId?: string,
+    userMessageId?: string,
+    assistantMessageId?: string
   ): void {
     this.logger.log(`[Memory] Extraction started for: "${userMessage.substring(0, 80)}"`)
 
@@ -209,7 +284,7 @@ export class ChatService {
           return
         }
         this.logger.log(`[Memory] Extracted ${entries.length} memories, saving to MySQL + Chroma...`)
-        return this.memoryService.saveMemoryEntries(entries)
+        return this.memoryService.saveMemoryEntries(entries, 'default', characterId, { conversationId, messageId: userMessageId, assistantMessageId })
       })
       .then((saved) => {
         if (saved && saved.length > 0) {

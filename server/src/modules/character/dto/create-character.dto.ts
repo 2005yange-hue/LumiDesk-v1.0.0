@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, IsArray, Min, Max } from 'class-validator'
+import { IsArray, IsNumber, IsObject, IsOptional, IsString, Max, Min } from 'class-validator'
 
 export class CreateCharacterDto {
   @IsString()
@@ -35,4 +35,16 @@ export class CreateCharacterDto {
   @IsString({ each: true })
   @IsOptional()
   dislikes?: string[]
+
+  @IsObject()
+  @IsOptional()
+  addressingRules?: Record<string, string>
+
+  @IsString()
+  @IsOptional()
+  openingMessage?: string
+
+  @IsObject()
+  @IsOptional()
+  appearance?: Record<string, string>
 }

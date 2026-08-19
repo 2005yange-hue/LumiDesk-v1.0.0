@@ -1,0 +1,78 @@
+{
+  "id": "hiyori_free",
+  "name": "Hiyori",
+  "author": "Live2D / Kani Biimu",
+  "version": "Cubism 3",
+  "appearanceType": "live2d",
+  "runtime": "cubism3",
+  "modelPath": "runtime/hiyori_free_t08.model3.json",
+  "preview": null,
+  "capabilities": {
+    "motions": ["idle", "tap", "thinking", "speaking", "positive", "calm", "concerned", "tired"],
+    "expressions": [],
+    "physics": true,
+    "lipSync": false
+  },
+  "features": {
+    "expression": true,
+    "motion": true,
+    "physics": true,
+    "eyeTracking": true,
+    "lipSync": false,
+    "breathing": true
+  },
+  "semanticActions": {
+    "idle": ["Idle"],
+    "interact": ["Tap@Body", "Tap", "Idle"],
+    "thinking": ["Flick", "Idle"],
+    "speaking": ["Flick@Body", "Tap", "Idle"],
+    "positive": ["Tap", "Idle"],
+    "calm": ["Idle"],
+    "concerned": ["Idle"],
+    "tired": ["Idle"]
+  },
+  "expressionProfiles": {
+    "calm": {
+      "parameters": [
+        { "parameter": "ParamMouthForm", "value": 0, "blend": "overwrite" }
+      ]
+    },
+    "happy": {
+      "parameters": [
+        { "parameter": "ParamMouthForm", "value": 0.48, "blend": "additive" },
+        { "parameter": "ParamEyeLSmile", "value": 0.55, "blend": "additive" },
+        { "parameter": "ParamEyeRSmile", "value": 0.55, "blend": "additive" },
+        { "parameter": "ParamCheek", "value": 0.4, "blend": "additive" }
+      ]
+    },
+    "concerned": {
+      "parameters": [
+        { "parameter": "ParamMouthForm", "value": -0.42, "blend": "additive" },
+        { "parameter": "ParamBrowLForm", "value": -0.28, "blend": "additive" },
+        { "parameter": "ParamBrowRForm", "value": -0.28, "blend": "additive" },
+        { "parameter": "ParamEyeLOpen", "value": -0.12, "blend": "additive" },
+        { "parameter": "ParamEyeROpen", "value": -0.12, "blend": "additive" }
+      ]
+    },
+    "tired": {
+      "parameters": [
+        { "parameter": "ParamMouthForm", "value": -0.2, "blend": "additive" },
+        { "parameter": "ParamBrowLForm", "value": -0.12, "blend": "additive" },
+        { "parameter": "ParamBrowRForm", "value": -0.12, "blend": "additive" },
+        { "parameter": "ParamEyeLOpen", "value": -0.28, "blend": "additive" },
+        { "parameter": "ParamEyeROpen", "value": -0.28, "blend": "additive" }
+      ]
+    }
+  },
+  "eyeTracking": {
+    "enabled": true,
+    "parameters": { "x": "ParamEyeBallX", "y": "ParamEyeBallY" },
+    "smoothing": 0.18,
+    "range": 0.35
+  },
+  "breathing": {
+    "enabled": true,
+    "parameters": { "breath": "ParamBreath", "bodyAngleX": "ParamBodyAngleX", "bodyAngleY": "ParamBodyAngleY" },
+    "profile": { "inhaleSeconds": 2.8, "exhaleSeconds": 3.5, "variation": 0.2 }
+  }
+}

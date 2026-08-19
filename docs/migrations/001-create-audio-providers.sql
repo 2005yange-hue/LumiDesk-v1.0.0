@@ -1,0 +1,19 @@
+CREATE TABLE IF NOT EXISTS audio_providers (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id VARCHAR(36) NOT NULL DEFAULT 'default',
+  name VARCHAR(64) NOT NULL,
+  provider_type VARCHAR(32) NOT NULL DEFAULT 'openai-compatible',
+  base_url VARCHAR(512) NOT NULL,
+  api_key VARCHAR(512) NOT NULL,
+  tts_model VARCHAR(128) NOT NULL,
+  stt_model VARCHAR(128) NOT NULL,
+  default_voice VARCHAR(64) NOT NULL DEFAULT 'alloy',
+  default_speed FLOAT NOT NULL DEFAULT 1,
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  timeout INT NOT NULL DEFAULT 30000,
+  custom_headers TEXT NULL,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  INDEX idx_audio_providers_user_id (user_id)
+);

@@ -34,6 +34,13 @@ export async function updateCharacter(
   return res.data.data
 }
 
+export async function uploadCharacterAvatar(id: string, file: File): Promise<CharacterData> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await axios.post<Wrapped<CharacterData>>(`${API_BASE}/${id}/avatar`, formData)
+  return res.data.data
+}
+
 export async function deleteCharacter(id: string): Promise<void> {
   await axios.delete(`${API_BASE}/${id}`)
 }

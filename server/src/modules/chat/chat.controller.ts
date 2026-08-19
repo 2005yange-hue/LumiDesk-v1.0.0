@@ -2,8 +2,7 @@ import { Controller, Post, Body, Res, HttpCode, Logger } from '@nestjs/common'
 import { Response } from 'express'
 import { ChatService } from './chat.service'
 import { ConversationService } from '../conversation/conversation.service'
-import { RuntimeModelConfig } from '../llm/llm-types'
-import { HistoryMessageDto } from './dto/message-response.dto'
+import { SendMessageDto } from './dto/send-message.dto'
 import { formatLLMError } from '../../common/error-formatter'
 
 @Controller('chat')
@@ -23,12 +22,7 @@ export class ChatController {
   @Post('send')
   @HttpCode(200)
   async sendMessage(
-    @Body() body: {
-      content: string
-      history?: HistoryMessageDto[]
-      modelConfig?: Partial<RuntimeModelConfig>
-      characterId?: string
-    },
+    @Body() body: SendMessageDto,
     @Res() res: Response
   ) {
     // 设置 SSE 响应头
@@ -42,7 +36,8 @@ export class ChatController {
         { content: body.content },
         body.history || [],
         body.modelConfig,
-        body.characterId
+        body.characterId,
+        body.conversationId
       )
 
       let fullContent = ''
@@ -56,8 +51,37 @@ export class ChatController {
       res.write(`data: ${JSON.stringify({ content: '', fullContent, done: true, id: Date.now().toString() })}\n\n`)
       res.end()
 
-      // 异步持久化聊天记录（不阻塞 SSE 响应）
-      this.conversationService.saveCurrentMessages(body.content, fullContent)
+      // 持久化完成后再建立来源追踪，避免自动记忆关联到不存在的消息。
+      void this.conversationService.saveCurrentMessages(body.content, fullContent, body.conversationId, body.characterId)
+        .then(async (saved) => {
+          if (!saved) return
+          await Promise.all([
+            this.chatService.recordCompletedInteraction(
+              body.characterId,
+              body.content,
+              fullContent,
+              body.conversationId,
+              saved.userMessageId,
+              saved.assistantMessageId
+            ),
+            this.chatService.extractMemoriesForCompletedInteraction(
+              body.content,
+              body.modelConfig,
+              body.characterId,
+              body.conversationId,
+              saved.userMessageId,
+              saved.assistantMessageId
+            ),
+            this.chatService.analyzeEmotionForCompletedInteraction(
+              body.content,
+              body.modelConfig,
+              body.characterId,
+              body.conversationId,
+              saved.userMessageId
+            )
+          ])
+        })
+        .catch((error) => this.logger.warn('Failed to persist completed interaction (non-blocking):', error))
     } catch (error) {
       this.logger.error('Chat error:', error)
       // 错误也不终止 SSE，确保前端能收到错误信息

@@ -1,6 +1,242 @@
-# Changelog
+## v0.18.4 — Live2D 渲染修复
 
-本文件记录项目的所有重要变更。
+**日期：** 2026-08-17
+
+### 修复
+- 显式注册 `pixi-live2d-display` 的 Pixi `Ticker`，修复模型资源已加载但没有持续更新、桌宠只显示聊天气泡的问题。
+- 模型加载期间保留头像降级视图，避免异步加载失败时出现只有气泡的空白桌宠窗口。
+- 使用 Live2D 模型本地边界重新计算初始尺寸，降低模型尺寸测量异常导致模型移出视口或被裁切的概率。
+
+---
+## v0.18.3 — Live2D 持续表现引擎
+
+**日期：** 2026-08-17
+
+### 新增
+- 新增 `PresentationEngine`、上下文/人格映射、表情层、动作层、动作队列、表现快照、强度曲线与最近 100 条表现生命周期 Timeline。
+- 模型清单新增 `features`、`expressionProfiles`、眼神跟随和呼吸配置；注册表在启动或显式刷新时缓存清单，运行态不重复读取模型文件。
+- Hiyori Free 使用参数表情 profile + Idle 动作保持 happy/concerned/tired，新增平滑眼神跟随、带确定性微扰的呼吸参数层。
+- 角色形象配置新增 `appearance.presentationStyleId`，可选择 default、gentle、energetic、cold_lady 四种表现风格。
+- 开发环境 `#/pet?debug=1` 新增表现调试面板，可查看层栈、参数、队列、Timeline，并通过 PresentationEngine 触发表现测试。
+
+### 调整
+- 桌宠展示链路固定为 `PetEventBus → ContextResolver + PersonalityMapper → PresentationEngine → PresentationDriver → Live2DManager → RendererAdapter`；聊天、情绪、关系和通知不直接调用 Pixi、Cubism、Motion 或参数接口。
+- 角色自身 mood 与用户 emotion 分离：用户情绪仅转为角色的关怀/鼓励/庆祝回应态度，不直接覆盖角色自身状态。
+- RendererAdapter 在 Cubism `beforeModelUpdate` 阶段先让 Motion/Idle 更新，再重写表情 profile，最后写眼神和呼吸专属参数；持续表情不再被 Idle Motion 覆盖。
+- 一次性互动、关系动作与聊天阶段均由 MotionManager 完成回调恢复上层栈，移除旧桌宠控制器中的定时恢复逻辑；SSE 只有首个 `chat_delta` 会切换到 speaking。
+
+---
+## v0.18.2 — 桌宠表现增强
+
+**日期：** 2026-08-17
+
+### 调整
+- 缩短模型与右键操作面板的间距，使菜单更贴近桌宠。
+- 修复打开右键菜单时原生窗口先扩展、渲染端后更新导致的模型左移抽动；桌宠窗口现在始终预留透明菜单区域，打开/关闭菜单不再改变窗口边界。
+- 修复 `Start.bat` 与 Vite Electron 插件重复启动桌面进程的问题；脚本现在等待 Vite 自动启动 Electron，仅在桌面进程缺失时启动恢复实例，并在失败时保留窗口显示错误。
+- 新增桌宠展示控制器：聊天思考、流式说话、点击互动、周期性待机和用户消息情绪均会驱动语义动作。
+- 用户表达焦虑、低落、愤怒或疲惫时，桌宠会保持关切/疲惫状态；恢复时先缓冲到平静，再回到角色基础心情或积极状态，避免表情突变。
+- Hiyori Free 清单补充 thinking/speaking 语义动作映射；动作继续仅由模型清单定义，不向业务层暴露具体动作组名称。
+
+---
+
+## v0.18.1 — 桌宠交互修复
+
+**日期：** 2026-08-17
+
+### 调整
+- 桌宠改为仅在 Live2D 有效命中区右键时打开纵向操作面板；模型外透明区域使用鼠标穿透，普通左键不再跳转主聊天窗口。
+- 右键面板新增“对话、语音、听歌、缩放”主操作，并保留置顶、重置位置和隐藏桌宠；语音、听歌当前只显示筹备中反馈，不调用音频能力。
+- 模型视口与菜单窗口外壳分离：菜单打开时扩展窗口并选择屏幕空间更充足的一侧，关闭后还原为模型视口，避免缩放时模型与操作面板被裁切。
+- 头像降级视图同步采用圆形有效命中区，避免透明空白区域误触。
+
+---
+
+## v0.18.0 — 通用角色形象与 Live2D 桌宠框架
+
+**日期：** 2026-08-17
+
+### 新增
+- 新增独立透明 Electron 桌宠窗口：默认置顶、自由拖动、`Ctrl + 鼠标滚轮` 缩放、位置/缩放/置顶持久化，以及聊天窗口聚焦与隐藏控制。
+- 新增通用模型注册表和 `model.json` 清单：支持内置与开发者扩展模型目录、Cubism 3/4 运行时、能力描述、语义动作映射、安全路径校验与 READY/INVALID/LOADING/FAILED/DISABLED 生命周期状态。
+- 新增 Live2D 核心层：`Live2DManager`、渲染适配器、语义动作解析和头像降级，不让业务模块直接依赖 Pixi/Cubism。
+- 新增 `PetEventBus`：聊天流式事件、角色切换和角色状态统一经事件总线镜像给桌宠；气泡不写入聊天、记忆、情绪、关系或通知数据。
+- 角色资料新增可选 `appearance` 对象；角色可绑定模型或继承全局默认模型，预留表情、动作、背景与主题配置。
+
+### 调整
+- Hiyori Free 作为首个内置测试模型移动到 `resources/live2d/hiyori_free`，保留原始许可文件；模型资源和 Cubism Core 通过 Electron Builder 运行时复制。
+- 角色编辑页新增“角色形象”选择；设置页新增“桌宠形象”配置、模型状态及开发者手动添加模型说明。
+
+---
+## v0.17.0 — Emotional Intelligence
+
+**日期：** 2026-08-17
+
+### 新增
+- 新增 `EmotionModule`：以规则兜底、结构化 LLM 识别为主的六类用户情绪智能层，支持 happy、calm、anxious、sad、angry、tired 与 1–5 强度、置信度。
+- 新增独立 `/emotion` 情绪中心：展示当前角色最近 7/30 天的概览、分布和可滚动记录，支持人工修正、单条删除与一键清除。
+- 新增情绪隐私开关；关闭后停止新消息识别和 Prompt 情绪上下文注入，既有记录仅在用户显式清除或 30 天到期后删除。
+- 新增高风险规则：自伤/自杀相关表达只注入当轮安全陪伴指引，不写入普通情绪记录、长期记忆或主动通知。
+- 会话删除或消息截断时同步清理关联情绪记录，防止已删除内容继续影响后续回复。
+- Electron 默认窗口调整为居中 1180×820（最小 960×640），新增自定义最小化、最大化/还原和关闭按钮。
+- 修复设置页、主动提醒、情绪中心与记忆中心的可用高度和滚动容器约束，长内容可使用鼠标滚轮完整浏览。
+
+### 数据库变化
+- 新增 `emotion_records` 与 `emotion_preferences`。
+
+---
+## 未发布 — Chat Request Validation
+
+### 修复
+- 修复 `POST /api/chat/send` 使用内联请求类型导致全局 `ValidationPipe` 不生效的问题。
+- 聊天请求现在统一使用 `SendMessageDto`，校验消息内容、历史消息、模型配置、角色 ID 和会话 ID。
+- 空消息或非法请求现在返回 HTTP 400，不再以 HTTP 200 SSE 错误事件响应。
+
+---
+
+## v0.14.0 — Relationship Evolution
+
+**日期：** 2026-08-16
+
+### 新增
+- `RelationshipEngineService`：在成功完成 AI 回复后按本地可解释规则计算关系分变化；普通交流 +0.1、感谢 +1、个人经历 +2、长期未互动 -0.5、明确冲突 -3。
+- 关系等级历史：跨越陌生、熟悉、朋友、亲密、特殊关系边界时写入 `relationship_history`。
+- 关系里程碑：初次交谈、相识一周/一月、三十次交流、首次分享兴趣与重要时刻陪伴写入 `relationship_milestones`。
+- 角色称呼规则：角色 JSON 新增 `addressingRules`，并按当前关系等级注入 Prompt。
+- Memory 页面新增关系成长卡片，展示相识天数、累计互动、共同经历、等级变化和里程碑。
+- 新增 `GET /api/relationship/:characterId`。
+
+### 数据库变化
+- `character_state` 的 affinity 升级为 FLOAT，并新增 `interaction_count`、`shared_experience_count`。
+- 新增 `relationship_history`、`relationship_milestones`。
+
+---
+
+## v0.13.0 — Proactive Agent
+
+**日期：** 2026-08-16
+
+### 新增
+- 新增 `ProactiveAgentModule`：将带时间表达的 `event` 记忆解析为可调度事件，应用启动时补扫并在每天凌晨扫描提醒。
+- 新增 `memory_events`：记录事件时间、提醒时间和 pending/sent/cancelled/expired 生命周期。
+- 新增持久化主动消息中心与 Notification API：聊天页可查看未读提醒并标记已读。
+- 新增角色 `initiative_level`（0–100）设置；实际主动触发值按陌生 0.3、熟悉 0.5、朋友 0.7、亲密/特殊 1.0 的关系系数折算。
+- 新增来源记忆去重与同角色 12 小时冷却，事件提醒与压力/焦虑关切均不调用 LLM，也不生成无理由日常问候。
+
+### 数据库变化
+- `character_state` 新增 `initiative_level`。
+- 新增 `memory_events` 与 `notifications`，分别持久化提醒日程和主动消息状态。
+
+---
+
+## v0.12.0 — Memory Intelligence
+
+**日期：** 2026-08-16
+
+### 新增
+- MemoryDeduplicationService：新记忆写入前使用向量语义搜索与文本相似度识别重复信息，阈值为 0.85，并合并内容、重要度和置信度。
+- 冲突与替代检测：出现“更喜欢、不再、改为”等语义时，旧记忆标记 `superseded` 并关联新的替代记忆。
+- MemoryScoringService：根据 importance、confidence、usage_count 与关系类型权重计算 `memory_score`，用于 MySQL 与向量检索排序。
+- MemoryMaintenanceService：每日凌晨执行记忆衰减、低价值归档、历史重复扫描和失败向量重试。
+- Memory 页面新增历史记忆区域，展示已替代/归档记录、替代关系、质量分和使用次数。
+
+### 数据库变化
+- `memory_entries` 新增 `status`、`replacement_memory_id`、`usage_count`、`memory_score`、`last_decay_at`。
+- Prompt 仅注入 `status=active` 的记忆；向量检索结果会回查 MySQL，防止旧向量绕过状态过滤。
+
+---
+
+## v0.11.0 — Memory Management Center
+
+**日期：** 2026-08-16
+
+### 新增
+- 新增独立 `/memory` 记忆管理页面，按关系、偏好、性格、事件和事实分组展示长期记忆。
+- 新增记忆编辑能力，可修改类型、内容和重要度；置信度保持为提取器字段。
+- 新增 `GET /api/memory/:characterId`、`PATCH /api/memory/:id`、`DELETE /api/memory/:id`。
+- 新增 Chroma 向量更新与删除能力。
+
+### 数据库变化
+- `memory_entries` 新增 `vector_sync_status` 和 `vector_sync_error`，用于记录 MySQL 与 Chroma 的同步状态。
+- 删除记忆时改为 Chroma 成功后再删除 MySQL；失败记录保留并可重试。
+
+---
+
+## v0.10.0 — Character Relationship System
+
+**日期：** 2026-08-16
+
+### 新增
+- `character_state.relationship_level`：根据 affinity 区间推导陌生、熟悉、朋友、亲密、特殊关系五级关系。
+- 关系等级 Prompt 规则：分别影响称呼、语气和主动关心程度，并限制无依据的亲密表达。
+- 关系等级记忆策略：动态调整长期记忆注入数量、重要度权重和 relationship 类型记忆优先级。
+- 聊天页状态指示器展示关系等级与亲密度。
+
+### 数据库变化
+- `character_state` 表新增 `relationship_level` 字段；服务启动时会同步已有状态记录。
+
+---
+
+## v0.9.0 — Chat Context Optimization
+
+**日期：** 2026-08-16
+
+### 新增
+- `ConversationSummaryModule`：未摘要消息超过 50 条时，使用当前 Provider 将较早对话合并为摘要。
+- `conversations.summary` 与 `summary_message_count`：持久化摘要及其覆盖的消息偏移量；原始 `messages` 不删除，历史浏览保持完整。
+- `conversation-summary.txt`：独立摘要 Prompt，要求只归纳事实、禁止执行历史内容中的指令或编造细节。
+
+### 修改
+- Chat 请求携带 `conversationId` 进入 ChatService；Prompt 顺序扩展为 `system → character → state → memory → summary → history → user`。
+- 摘要会话最多向模型提供 50 条未摘要原文；摘要生成、读取或保存失败时回退既有历史截断流程，不影响 SSE 聊天。
+
+### 数据库变化
+- `conversations` 表新增 `summary`（TEXT, NULL）与 `summary_message_count`（INT, DEFAULT 0）。
+
+---
+
+## v0.8.1 — Long-term Memory Upgrade
+
+**日期：** 2026-08-16
+
+### 新增
+- `memory_entries` 增加 `character_id`、`confidence`、`last_used_at` 字段；历史记录保持可用
+- 记忆分类升级为 preference / personality / event / relationship / fact
+- 记忆提取 Prompt 改为文件化加载，严格输出分类、重要度和置信度
+- Chroma 元数据保存角色 ID、重要度和置信度；语义检索按当前用户和角色范围过滤
+
+### 修改
+- 记忆命中后异步更新 `last_used_at`；向量失败时回退当前角色及历史兼容记忆的 MySQL 查询
+- 新记忆自动绑定当前角色，Prompt 注入保留类型、相似度和置信度信息
+
+---
+
+## v0.8.0 — State-aware Reply Style
+
+**日期：** 2026-08-16
+
+### 修改
+- 扩展 `CharacterStateService.formatPrompt()`，增加 `<reply_guidance>` 状态回复指令
+- `concerned` 优先触发共情、少玩笑与单个开放式追问
+- `tired` 或精力不高于 30 时要求简短克制，避免过度热情
+- 亲密度高于 80 时允许更熟悉的称呼与语气，但只可引用已有记忆或历史，禁止编造共同经历
+- 规则按“关切情感表达 → 低精力篇幅 → 高亲密度熟悉感”分层叠加，不改变状态表、接口和前端结构
+
+---
+
+## v0.7.0 — Character State System
+
+**日期：** 2026-08-16
+
+### 新增
+- `CharacterStateModule`：管理角色心情、精力、亲密度与最近互动时间
+- MySQL `character_state` 表；以 `character_id` 逻辑关联 JSON 角色资料
+- `GET /api/character-state/:characterId` 状态读取接口，首次读取自动初始化
+- 前端 `character-state.store` 与角色状态 API，聊天页展示当前状态
+- Chat 上下文新增角色状态 system prompt，顺序为 system → character → state → memory → history → user
+
+### 修改
+- 每轮用户消息在构建 Prompt 前按确定性关键词规则更新状态；状态服务异常会降级，不影响聊天主流程
 
 ---
 
@@ -270,6 +506,70 @@
 
 ---
 
+## v0.6.1 — Conversation Initialization Stability
+
+**日期：** 2026-08-12
+
+### 修复
+
+- 修复 Electron 首次启动无法显示历史会话的问题
+- ConversationStore 新增自动初始化流程
+- 修复 fetchList 首次失败导致会话列表被清空的问题
+- 新增有限重试机制，提高后端启动时的容错能力
+- 修复 currentConversationId 无法自动恢复的问题
+- 修复新建会话后历史会话延迟出现的问题
+
+### 优化
+
+- Conversation 初始化从 ChatView 生命周期迁移至应用启动阶段
+- 增加会话选择调和逻辑：
+  - 优先恢复 localStorage 保存会话
+  - 会话不存在时自动选择最新会话
+  - 无会话保持空状态
+
+---
+
+## v0.6.2 — Startup Bootstrap
+
+**日期：** 2026-08-13
+
+### 新增
+- 初始化引导页（InitializationView）：启动后先执行初始化任务，全部成功后再进入聊天主界面
+- 初始化状态管理（bootstrap.store）：后端健康检查、会话/角色/Provider 数据加载的任务编排与进度展示
+- 角色数据缓存 store（character.store），ChatView 改为复用缓存，避免重复请求
+- 健康检查 API 封装（health.api，`GET /api/health`）
+- 路由初始化守卫：未完成初始化前强制进入 `/init`，成功后自动进入 `/`
+
+### 修复
+- 修复前端比后端先启动导致 `GET /api/conversations` 失败、进入主界面后历史会话为空的问题（由重试兜底改为显式引导页门控）
+
+### 修改
+- `conversation.store.ts` — `fetchList()/init()` 返回布尔结果以支持引导页失败检测，失败时重置 `initPromise` 允许重试
+- `provider.store.ts` — `fetchProviders()/refreshActive()` 返回布尔结果
+- `ChatView.vue` — 角色数据改读 character.store，移除启动时重复请求
+- `main.ts` — 移除启动阶段的 `conversationStore.init()` 调用
+- `router/index.ts` — 新增 `/init` 路由与全局守卫
+
+---
+
+## v0.6.3 — Message Persistence & Ordering Stability
+
+**日期：** 2026-08-15
+
+### 修复
+- **进入主界面当前会话历史不自动加载**：`ChatView.onMounted` 恢复加载当前选中会话的历史消息（`bootstrapStore` 只初始化会话列表与选择，未加载消息）。
+- **切换会话 A→B→A 后 A 记录消失**：聊天请求打通 `conversationId` 链路，消息正确持久化到用户选中的会话（不再落到后端自动创建的临时会话）。
+- **assistant 回复偶发排在 user 提问之前**：`saveMessages` 让 assistant 的 `created_at` 比 user 晚 1ms，避免同毫秒时间戳导致 `ORDER BY created_at ASC` 排序不稳定。
+
+### 修改
+- `src/views/ChatView.vue` — `onMounted` 恢复当前会话历史加载
+- `src/services/chat.api.ts` — 请求体携带 `conversationId`
+- `src/stores/chat.store.ts` — 发送时传递 `currentConversationId`
+- `server/src/modules/chat/chat.controller.ts` — 接收并透传 `conversationId`
+- `server/src/modules/conversation/conversation.service.ts` — `saveCurrentMessages` 支持指定会话 ID；`saveMessages` 保证消息时间戳严格有序
+
+---
+
 ## 后续版本规划
 
 ### v0.7.0 — Token 与上下文优化
@@ -285,3 +585,38 @@
 ### v0.9.0 — Agent 主动交互
 - 行为决策引擎
 - 主动提醒与通知
+
+---
+
+## [0.16.0] - 2026-08-17
+
+### Added
+- 聊天历史最近 50 条初始加载、向上分页加载与滚动锚点保持。
+- 消息复制、编辑、重新生成、删除确认，以及 Markdown / JSON 会话导出。
+- 消息 `turn_id`、自动记忆 `memory_sources` 来源表和关系 `relationship_interactions` 互动账本。
+- 角色可维护 `openingMessage`，空会话欢迎区展示但不持久化为消息。
+
+### Changed
+- 编辑、重新生成和删除会截断会话尾部、重置摘要并异步重建当前会话自动记忆、事件/通知和角色关系派生产物。
+- 自动记忆改为在消息真实持久化后提取，记录用户与助手消息来源；旧记忆标记为 `legacy` 并保留。
+
+### Fixed
+- 向量删除失败时保留 MySQL 自动记忆并标记 `deletion_pending`，每日维护任务会优先重试删除，避免误重建孤立向量。
+
+## [0.15.0] - 2026-08-17
+
+### Added
+- 全局默认与角色覆盖的主动通知偏好、静默时段、每日上限和冷却时间。
+- 通知来源解释、事件稍后提醒/取消、关切提醒忽略及 Electron Windows 系统通知安全 IPC。
+
+### Changed
+- 主动提醒改为启动补扫加每 15 分钟扫描；系统通知仅在应用运行期间投递并记录投递时间防重。
+
+
+## Unreleased — 发布前运行时优化
+
+- 桌面版默认使用 SQLite，Electron 安装包自动启动内置 NestJS 后端，普通用户不再依赖 Node.js、MySQL 或 Docker。
+- 增加 TypeORM 初始 migration、生产 API 基址和本地数据目录隔离。
+- Chroma 改为显式可选，未启用时不再请求本机 8000 端口。
+- 修复同一聊天回复重复触发 TTS、停止播放生命周期竞态和 GPT-SoVITS 配置路径问题。
+- 移除未引用的 Pixi/Nest WebSocket 依赖。

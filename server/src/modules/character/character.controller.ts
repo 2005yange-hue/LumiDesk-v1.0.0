@@ -1,4 +1,17 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Logger, NotFoundException } from '@nestjs/common'
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+  Put,
+  UploadedFile,
+  UseInterceptors
+} from '@nestjs/common'
+import { FileInterceptor } from '@nestjs/platform-express'
 import { CharacterService } from './character.service'
 import { CreateCharacterDto } from './dto/create-character.dto'
 import { UpdateCharacterDto } from './dto/update-character.dto'
@@ -6,8 +19,6 @@ import { Character } from './character.interface'
 
 @Controller('character')
 export class CharacterController {
-  private readonly logger = new Logger(CharacterController.name)
-
   constructor(private readonly characterService: CharacterService) {}
 
   @Get()
@@ -35,6 +46,29 @@ export class CharacterController {
     @Body() dto: UpdateCharacterDto
   ): Character {
     const updated = this.characterService.update(id, dto)
+    if (!updated) {
+      throw new NotFoundException('角色不存在')
+    }
+    return updated
+  }
+
+  @Post(':id/avatar')
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 2 * 1024 * 1024 },
+    fileFilter: (_request, file, callback) => {
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/webp']
+      callback(null, allowedTypes.includes(file.mimetype))
+    }
+  }))
+  uploadAvatar(
+    @Param('id') id: string,
+    @UploadedFile() file?: { buffer: Buffer; mimetype: string }
+  ): Character {
+    if (!file) {
+      throw new BadRequestException('请上传 PNG、JPEG 或 WebP 格式且不超过 2 MB 的头像')
+    }
+
+    const updated = this.characterService.saveAvatar(id, file)
     if (!updated) {
       throw new NotFoundException('角色不存在')
     }

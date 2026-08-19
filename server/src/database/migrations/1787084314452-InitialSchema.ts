@@ -1,0 +1,122 @@
+import { MigrationInterface, QueryRunner } from "typeorm";
+
+export class InitialSchema1787084314452 implements MigrationInterface {
+    name = 'InitialSchema1787084314452'
+
+    public async up(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`CREATE TABLE "provider_models" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "provider_id" integer NOT NULL, "model_name" varchar(128) NOT NULL, "enabled" boolean NOT NULL DEFAULT (1), "created_at" datetime NOT NULL DEFAULT (datetime('now')))`);
+        await queryRunner.query(`CREATE INDEX "IDX_529993ccd831652db3371bdb7e" ON "provider_models" ("provider_id") `);
+        await queryRunner.query(`CREATE TABLE "notifications" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "user_id" varchar(36) NOT NULL DEFAULT ('default'), "character_id" varchar(64) NOT NULL, "type" varchar(32) NOT NULL, "content" text NOT NULL, "memory_event_id" integer, "source_memory_id" integer, "status" varchar(16) NOT NULL DEFAULT ('unread'), "read_at" datetime, "system_notified_at" datetime, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')))`);
+        await queryRunner.query(`CREATE INDEX "IDX_9a8a82462cab47c73d25f49261" ON "notifications" ("user_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_08bf29ae03a0dd3af3b49e1fe4" ON "notifications" ("character_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_d38a1efa96f4a63ffe42ed1fcf" ON "notifications" ("memory_event_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_894235d2fec6b523f6a7431a7c" ON "notifications" ("source_memory_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_92f5d3a7779be163cbea7916c6" ON "notifications" ("status") `);
+        await queryRunner.query(`CREATE TABLE "memory_events" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "memory_id" integer NOT NULL, "event_time" datetime NOT NULL, "remind_time" datetime NOT NULL, "status" varchar(16) NOT NULL DEFAULT ('pending'), "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')))`);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_77c9380abbd22cba0ff74febac" ON "memory_events" ("memory_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_97e0fd440f3a7b5ce8094b5101" ON "memory_events" ("event_time") `);
+        await queryRunner.query(`CREATE INDEX "IDX_2994ef427d0299b644c378ae7e" ON "memory_events" ("remind_time") `);
+        await queryRunner.query(`CREATE INDEX "IDX_04883ee581e38e0b71c7593502" ON "memory_events" ("status") `);
+        await queryRunner.query(`CREATE TABLE "model_providers" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "user_id" varchar(36) NOT NULL DEFAULT ('default'), "name" varchar(64) NOT NULL, "provider" varchar(32) NOT NULL, "provider_type" varchar(32) NOT NULL DEFAULT ('openai-compatible'), "base_url" varchar(512) NOT NULL, "api_key" varchar(512) NOT NULL, "model" varchar(64) NOT NULL, "enabled" boolean NOT NULL DEFAULT (1), "is_default" boolean NOT NULL DEFAULT (0), "temperature" float NOT NULL DEFAULT (0.7), "max_tokens" integer NOT NULL DEFAULT (4096), "top_p" float NOT NULL DEFAULT (1), "stream" boolean NOT NULL DEFAULT (1), "timeout" integer NOT NULL DEFAULT (30000), "custom_headers" text, "custom_body" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')))`);
+        await queryRunner.query(`CREATE INDEX "IDX_d2f1edf8595c50ae93976e9173" ON "model_providers" ("user_id") `);
+        await queryRunner.query(`CREATE TABLE "notification_preferences" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "user_id" varchar(36) NOT NULL DEFAULT ('default'), "character_id" varchar(64), "enabled" boolean, "system_enabled" boolean, "event_reminder_enabled" boolean, "wellbeing_checkin_enabled" boolean, "quiet_start" varchar(5), "quiet_end" varchar(5), "daily_limit" integer, "cooldown_minutes" integer, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')))`);
+        await queryRunner.query(`CREATE INDEX "IDX_64c90edc7310c6be7c10c96f67" ON "notification_preferences" ("user_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_a7de81fa11fccabebf318947b6" ON "notification_preferences" ("character_id") `);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_64e141574c6b7646a35c94a863" ON "notification_preferences" ("user_id", "character_id") `);
+        await queryRunner.query(`CREATE TABLE "conversations" ("id" varchar(36) PRIMARY KEY NOT NULL, "user_id" varchar(36) NOT NULL DEFAULT ('default'), "character_id" varchar(64), "title" varchar(200), "message_count" integer NOT NULL DEFAULT (0), "summary" text, "summary_message_count" integer NOT NULL DEFAULT (0), "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')))`);
+        await queryRunner.query(`CREATE TABLE "messages" ("id" varchar(36) PRIMARY KEY NOT NULL, "conversation_id" varchar(36) NOT NULL, "role" varchar(16) NOT NULL, "content" text NOT NULL, "turn_id" varchar(36), "token_count" integer, "created_at" datetime NOT NULL DEFAULT (datetime('now')))`);
+        await queryRunner.query(`CREATE TABLE "memory_sources" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "memory_id" integer NOT NULL, "conversation_id" varchar(36) NOT NULL, "user_message_id" varchar(36) NOT NULL, "assistant_message_id" varchar(36), "created_at" datetime NOT NULL DEFAULT (datetime('now')))`);
+        await queryRunner.query(`CREATE INDEX "IDX_d838cc7a30b1743f1ec3799bc3" ON "memory_sources" ("memory_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_570c6503705d8c155db386bbae" ON "memory_sources" ("conversation_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_a299d84135dd4855219fc48268" ON "memory_sources" ("user_message_id") `);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_61ea37df1498b28f7532edabb8" ON "memory_sources" ("memory_id", "conversation_id", "user_message_id") `);
+        await queryRunner.query(`CREATE TABLE "memory_entries" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "user_id" varchar(36) NOT NULL DEFAULT ('default'), "character_id" varchar(64), "origin" varchar(16) NOT NULL DEFAULT ('legacy'), "source_conversation_id" varchar(36), "source_message_id" varchar(36), "source_assistant_message_id" varchar(36), "vector_id" varchar(64), "vector_sync_status" varchar(16) NOT NULL DEFAULT ('pending'), "vector_sync_error" text, "deletion_pending" boolean NOT NULL DEFAULT (0), "status" varchar(16) NOT NULL DEFAULT ('active'), "replacement_memory_id" integer, "type" varchar(32) NOT NULL, "content" text NOT NULL, "importance" float NOT NULL DEFAULT (0.5), "confidence" float NOT NULL DEFAULT (0.5), "usage_count" integer NOT NULL DEFAULT (0), "memory_score" float NOT NULL DEFAULT (0.5), "last_used_at" datetime, "last_decay_at" datetime, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')))`);
+        await queryRunner.query(`CREATE INDEX "IDX_89a846cb567eace91491952da3" ON "memory_entries" ("user_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_6e7b81727316c653711e7bb5ed" ON "memory_entries" ("character_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_a7c3677b13ec81e7ec934b1ee0" ON "memory_entries" ("source_conversation_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_128ae3a2397e259b55ab476363" ON "memory_entries" ("status") `);
+        await queryRunner.query(`CREATE TABLE "emotion_records" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "user_id" varchar(64) NOT NULL DEFAULT ('default'), "character_id" varchar(64) NOT NULL, "conversation_id" varchar(64), "user_message_id" varchar(64) NOT NULL, "emotion" varchar(16) NOT NULL, "intensity" tinyint NOT NULL, "confidence" float NOT NULL, "source" varchar(16) NOT NULL, "reason" varchar(240), "occurred_at" datetime NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')))`);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_03f72dd08fd14c509a0aae2bc3" ON "emotion_records" ("user_message_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_ac0ff209d800af216dacf70b86" ON "emotion_records" ("user_id", "character_id", "occurred_at") `);
+        await queryRunner.query(`CREATE TABLE "emotion_preferences" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "user_id" varchar(64) NOT NULL DEFAULT ('default'), "enabled" boolean NOT NULL DEFAULT (1), "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')))`);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_1b48e0cc42798209c81f33a54d" ON "emotion_preferences" ("user_id") `);
+        await queryRunner.query(`CREATE TABLE "relationship_milestones" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "character_id" varchar(64) NOT NULL, "code" varchar(48) NOT NULL, "title" varchar(80) NOT NULL, "description" varchar(255) NOT NULL, "achieved_at" datetime NOT NULL DEFAULT (datetime('now')))`);
+        await queryRunner.query(`CREATE INDEX "IDX_ff8530a36996b492ad52846051" ON "relationship_milestones" ("character_id") `);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_1af7b4ea6a3d8486c6edb07250" ON "relationship_milestones" ("character_id", "code") `);
+        await queryRunner.query(`CREATE TABLE "relationship_interactions" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "character_id" varchar(64) NOT NULL, "conversation_id" varchar(36) NOT NULL, "user_message_id" varchar(36) NOT NULL, "assistant_message_id" varchar(36), "delta" float NOT NULL, "signals" text NOT NULL, "reasons" text NOT NULL, "occurred_at" datetime NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')))`);
+        await queryRunner.query(`CREATE INDEX "IDX_2496c867905ea18ea7bcd05c6b" ON "relationship_interactions" ("character_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_dc5d1e0180f35a447ee04ef536" ON "relationship_interactions" ("conversation_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_596fd078699efe94c2151337e7" ON "relationship_interactions" ("user_message_id") `);
+        await queryRunner.query(`CREATE INDEX "IDX_3dc524e0bfbbb89ab4cc353187" ON "relationship_interactions" ("occurred_at") `);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_e9bf8e1c03ab6cc929d34213a6" ON "relationship_interactions" ("character_id", "conversation_id", "user_message_id") `);
+        await queryRunner.query(`CREATE TABLE "character_state" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "character_id" varchar(64) NOT NULL, "mood" varchar(16) NOT NULL DEFAULT ('calm'), "energy" integer NOT NULL DEFAULT (100), "affinity" float NOT NULL DEFAULT (10), "relationship_level" varchar(16) NOT NULL DEFAULT ('stranger'), "initiative_level" integer NOT NULL DEFAULT (50), "interaction_count" integer NOT NULL DEFAULT (0), "shared_experience_count" integer NOT NULL DEFAULT (0), "last_interaction_at" datetime, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')))`);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_5ca77a84bae3003da361d8b678" ON "character_state" ("character_id") `);
+        await queryRunner.query(`CREATE TABLE "relationship_history" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "character_id" varchar(64) NOT NULL, "old_level" varchar(16) NOT NULL, "new_level" varchar(16) NOT NULL, "reason" text NOT NULL, "created_at" datetime NOT NULL DEFAULT (datetime('now')))`);
+        await queryRunner.query(`CREATE INDEX "IDX_66efb4c8881017a37c6a5e655f" ON "relationship_history" ("character_id") `);
+        await queryRunner.query(`CREATE TABLE "audio_providers" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "user_id" varchar(36) NOT NULL DEFAULT ('default'), "name" varchar(64) NOT NULL, "provider_type" varchar(32) NOT NULL DEFAULT ('openai-compatible'), "base_url" varchar(512) NOT NULL, "api_key" varchar(512) NOT NULL, "tts_model" varchar(128) NOT NULL, "stt_model" varchar(128) NOT NULL, "default_voice" varchar(64) NOT NULL DEFAULT ('alloy'), "default_speed" float NOT NULL DEFAULT (1), "enabled" boolean NOT NULL DEFAULT (1), "is_default" boolean NOT NULL DEFAULT (0), "timeout" integer NOT NULL DEFAULT (30000), "custom_headers" text, "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')))`);
+        await queryRunner.query(`CREATE INDEX "IDX_45ca2201de3f757cff26e62334" ON "audio_providers" ("user_id") `);
+        await queryRunner.query(`CREATE TABLE "temporary_messages" ("id" varchar(36) PRIMARY KEY NOT NULL, "conversation_id" varchar(36) NOT NULL, "role" varchar(16) NOT NULL, "content" text NOT NULL, "turn_id" varchar(36), "token_count" integer, "created_at" datetime NOT NULL DEFAULT (datetime('now')), CONSTRAINT "FK_3bc55a7c3f9ed54b520bb5cfe23" FOREIGN KEY ("conversation_id") REFERENCES "conversations" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION)`);
+        await queryRunner.query(`INSERT INTO "temporary_messages"("id", "conversation_id", "role", "content", "turn_id", "token_count", "created_at") SELECT "id", "conversation_id", "role", "content", "turn_id", "token_count", "created_at" FROM "messages"`);
+        await queryRunner.query(`DROP TABLE "messages"`);
+        await queryRunner.query(`ALTER TABLE "temporary_messages" RENAME TO "messages"`);
+    }
+
+    public async down(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`ALTER TABLE "messages" RENAME TO "temporary_messages"`);
+        await queryRunner.query(`CREATE TABLE "messages" ("id" varchar(36) PRIMARY KEY NOT NULL, "conversation_id" varchar(36) NOT NULL, "role" varchar(16) NOT NULL, "content" text NOT NULL, "turn_id" varchar(36), "token_count" integer, "created_at" datetime NOT NULL DEFAULT (datetime('now')))`);
+        await queryRunner.query(`INSERT INTO "messages"("id", "conversation_id", "role", "content", "turn_id", "token_count", "created_at") SELECT "id", "conversation_id", "role", "content", "turn_id", "token_count", "created_at" FROM "temporary_messages"`);
+        await queryRunner.query(`DROP TABLE "temporary_messages"`);
+        await queryRunner.query(`DROP INDEX "IDX_45ca2201de3f757cff26e62334"`);
+        await queryRunner.query(`DROP TABLE "audio_providers"`);
+        await queryRunner.query(`DROP INDEX "IDX_66efb4c8881017a37c6a5e655f"`);
+        await queryRunner.query(`DROP TABLE "relationship_history"`);
+        await queryRunner.query(`DROP INDEX "IDX_5ca77a84bae3003da361d8b678"`);
+        await queryRunner.query(`DROP TABLE "character_state"`);
+        await queryRunner.query(`DROP INDEX "IDX_e9bf8e1c03ab6cc929d34213a6"`);
+        await queryRunner.query(`DROP INDEX "IDX_3dc524e0bfbbb89ab4cc353187"`);
+        await queryRunner.query(`DROP INDEX "IDX_596fd078699efe94c2151337e7"`);
+        await queryRunner.query(`DROP INDEX "IDX_dc5d1e0180f35a447ee04ef536"`);
+        await queryRunner.query(`DROP INDEX "IDX_2496c867905ea18ea7bcd05c6b"`);
+        await queryRunner.query(`DROP TABLE "relationship_interactions"`);
+        await queryRunner.query(`DROP INDEX "IDX_1af7b4ea6a3d8486c6edb07250"`);
+        await queryRunner.query(`DROP INDEX "IDX_ff8530a36996b492ad52846051"`);
+        await queryRunner.query(`DROP TABLE "relationship_milestones"`);
+        await queryRunner.query(`DROP INDEX "IDX_1b48e0cc42798209c81f33a54d"`);
+        await queryRunner.query(`DROP TABLE "emotion_preferences"`);
+        await queryRunner.query(`DROP INDEX "IDX_ac0ff209d800af216dacf70b86"`);
+        await queryRunner.query(`DROP INDEX "IDX_03f72dd08fd14c509a0aae2bc3"`);
+        await queryRunner.query(`DROP TABLE "emotion_records"`);
+        await queryRunner.query(`DROP INDEX "IDX_128ae3a2397e259b55ab476363"`);
+        await queryRunner.query(`DROP INDEX "IDX_a7c3677b13ec81e7ec934b1ee0"`);
+        await queryRunner.query(`DROP INDEX "IDX_6e7b81727316c653711e7bb5ed"`);
+        await queryRunner.query(`DROP INDEX "IDX_89a846cb567eace91491952da3"`);
+        await queryRunner.query(`DROP TABLE "memory_entries"`);
+        await queryRunner.query(`DROP INDEX "IDX_61ea37df1498b28f7532edabb8"`);
+        await queryRunner.query(`DROP INDEX "IDX_a299d84135dd4855219fc48268"`);
+        await queryRunner.query(`DROP INDEX "IDX_570c6503705d8c155db386bbae"`);
+        await queryRunner.query(`DROP INDEX "IDX_d838cc7a30b1743f1ec3799bc3"`);
+        await queryRunner.query(`DROP TABLE "memory_sources"`);
+        await queryRunner.query(`DROP TABLE "messages"`);
+        await queryRunner.query(`DROP TABLE "conversations"`);
+        await queryRunner.query(`DROP INDEX "IDX_64e141574c6b7646a35c94a863"`);
+        await queryRunner.query(`DROP INDEX "IDX_a7de81fa11fccabebf318947b6"`);
+        await queryRunner.query(`DROP INDEX "IDX_64c90edc7310c6be7c10c96f67"`);
+        await queryRunner.query(`DROP TABLE "notification_preferences"`);
+        await queryRunner.query(`DROP INDEX "IDX_d2f1edf8595c50ae93976e9173"`);
+        await queryRunner.query(`DROP TABLE "model_providers"`);
+        await queryRunner.query(`DROP INDEX "IDX_04883ee581e38e0b71c7593502"`);
+        await queryRunner.query(`DROP INDEX "IDX_2994ef427d0299b644c378ae7e"`);
+        await queryRunner.query(`DROP INDEX "IDX_97e0fd440f3a7b5ce8094b5101"`);
+        await queryRunner.query(`DROP INDEX "IDX_77c9380abbd22cba0ff74febac"`);
+        await queryRunner.query(`DROP TABLE "memory_events"`);
+        await queryRunner.query(`DROP INDEX "IDX_92f5d3a7779be163cbea7916c6"`);
+        await queryRunner.query(`DROP INDEX "IDX_894235d2fec6b523f6a7431a7c"`);
+        await queryRunner.query(`DROP INDEX "IDX_d38a1efa96f4a63ffe42ed1fcf"`);
+        await queryRunner.query(`DROP INDEX "IDX_08bf29ae03a0dd3af3b49e1fe4"`);
+        await queryRunner.query(`DROP INDEX "IDX_9a8a82462cab47c73d25f49261"`);
+        await queryRunner.query(`DROP TABLE "notifications"`);
+        await queryRunner.query(`DROP INDEX "IDX_529993ccd831652db3371bdb7e"`);
+        await queryRunner.query(`DROP TABLE "provider_models"`);
+    }
+
+}

@@ -1,11 +1,20 @@
 /**
  * Character 角色接口 — 前后端共享规范定义
  * 这是唯一的规范来源（single source of truth）。
- *
- * 前端：通过 @shared/types/character 引用
- * 服务端：通过 character.interface.ts 本地定义引用
- *         （受 NestJS tsc rootDir 限制无法直接 import shared/）
  */
+export type CharacterRelationshipLevel = 'stranger' | 'familiar' | 'friend' | 'intimate' | 'special'
+
+export type CharacterAddressingRules = Partial<Record<CharacterRelationshipLevel, string>>
+
+export interface CharacterAppearance {
+  modelId?: string
+  expressionSetId?: string
+  motionSetId?: string
+  backgroundId?: string
+  themeId?: string
+  presentationStyleId?: string
+}
+
 export interface Character {
   id: string
   name: string
@@ -16,7 +25,11 @@ export interface Character {
   speakingStyle: string
   likes: string[]
   dislikes: string[]
-  relationshipLevel: number
+  addressingRules: CharacterAddressingRules
+  avatarUrl?: string
+  openingMessage?: string
+  appearance?: CharacterAppearance
   createdAt: string
   updatedAt: string
 }
+

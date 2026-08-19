@@ -4,9 +4,14 @@ import { ChromaService, ChromaSearchResult } from './chroma/chroma.service'
 
 /** 向量记忆搜索结果 */
 export interface MemorySearchResult {
+  memoryId: string
   content: string
   score: number
   type: string
+  importance: number | null
+  confidence: number | null
+  memoryScore: number | null
+  status: string | null
 }
 
 /** Embedding 超时时间（毫秒） */
@@ -45,6 +50,7 @@ export class VectorMemoryService {
     content: string,
     metadata: Record<string, unknown>
   ): Promise<string | null> {
+    if (!this.chromaService.isEnabled()) return null
     this.logger.log(`[VectorMemory] index memory id=${memoryId}`)
 
     try {
@@ -58,6 +64,50 @@ export class VectorMemoryService {
       this.logger.warn(`[VectorMemory] index failed for memory id=${memoryId}:`, error)
       return null
     }
+  }
+
+  /** 更新已有记忆的向量内容或 metadata，失败时抛出异常供管理接口处理。 */
+  async updateMemory(
+    memoryId: string,
+    userId: string,
+    content: string,
+    metadata: Record<string, unknown>,
+    contentChanged: boolean,
+    hasVector: boolean
+  ): Promise<string> {
+    if (!this.chromaService.isEnabled()) return memoryId
+    const embedding = contentChanged || !hasVector
+      ? await this.getEmbedding(content)
+      : undefined
+
+    if (!hasVector) {
+      if (!embedding) {
+        throw new Error('Embedding 不可用，无法创建记忆向量')
+      }
+
+      await this.chromaService.addMemory({
+        id: memoryId,
+        userId,
+        content,
+        embedding,
+        metadata
+      })
+      return memoryId
+    }
+
+    await this.chromaService.updateMemory({
+      id: memoryId,
+      content: contentChanged ? content : undefined,
+      embedding,
+      metadata: { ...metadata, userId }
+    })
+    return memoryId
+  }
+
+  /** 删除记忆向量，失败时抛出异常供管理接口记录同步状态。 */
+  async deleteMemory(vectorId: string): Promise<void> {
+    if (!this.chromaService.isEnabled()) return
+    await this.chromaService.deleteMemory(vectorId)
   }
 
   private async doIndex(
@@ -100,14 +150,16 @@ export class VectorMemoryService {
   async search(
     query: string,
     userId = 'default',
-    topK?: number
+    topK?: number,
+    characterId?: string
   ): Promise<MemorySearchResult[]> {
+    if (!this.chromaService.isEnabled()) return []
     const totalStart = Date.now()
     this.logger.log(`[VectorMemory] search query: "${query.substring(0, 80)}"`)
 
     try {
       const result = await this.withTimeout(
-        this.doSearch(query, userId, topK),
+        this.doSearch(query, userId, topK, characterId),
         EMBEDDING_TIMEOUT_MS,
         'vector search'
       )
@@ -122,7 +174,8 @@ export class VectorMemoryService {
   private async doSearch(
     query: string,
     userId: string,
-    topK?: number
+    topK?: number,
+    characterId?: string
   ): Promise<MemorySearchResult[]> {
     this.logger.log('[Embedding] request start')
 
@@ -141,13 +194,32 @@ export class VectorMemoryService {
     this.logger.log(`[Embedding] success dimension=${embedding.length} (${Date.now() - embedStart}ms)`)
 
     const k = topK ?? 5
-    const results = await this.chromaService.searchSimilar(embedding, userId, k)
+    const results = await this.chromaService.searchSimilar(embedding, userId, k, characterId)
 
     return results.map((r: ChromaSearchResult) => ({
+      memoryId: r.id,
       content: r.content,
       score: r.score,
-      type: (r.metadata['type'] as string) || 'unknown'
+      type: (r.metadata['type'] as string) || 'unknown',
+      importance: typeof r.metadata['importance'] === 'number' ? r.metadata['importance'] : null,
+      confidence: typeof r.metadata['confidence'] === 'number' ? r.metadata['confidence'] : null,
+      memoryScore: typeof r.metadata['memoryScore'] === 'number' ? r.metadata['memoryScore'] : null,
+      status: typeof r.metadata['status'] === 'string' ? r.metadata['status'] : null
     }))
+  }
+
+  private async getEmbedding(content: string): Promise<number[]> {
+    const embedding = await this.withTimeout(
+      this.embeddingService.embed(content),
+      EMBEDDING_TIMEOUT_MS,
+      'embedding'
+    )
+
+    if (!embedding || embedding.length === 0) {
+      throw new Error('Embedding 不可用，无法更新记忆向量')
+    }
+
+    return embedding
   }
 
   /**

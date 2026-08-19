@@ -1,6 +1,5 @@
 import type { ChatStreamChunk, SendMessageRequest, HistoryMessage } from '@/types/chat.types'
-
-const API_BASE = '/api'
+import { apiUrl } from './api-base'
 
 export interface ModelConfigInput {
   providerId?: number
@@ -17,6 +16,7 @@ export async function sendMessageStream(
   request: SendMessageRequest,
   modelConfig: ModelConfigInput,
   characterId: string,
+  conversationId: string | null,
   onChunk: (chunk: ChatStreamChunk) => void,
   onError: (error: string) => void,
   onComplete: (messageId: string) => void,
@@ -39,7 +39,12 @@ export async function sendMessageStream(
       body.characterId = characterId
     }
 
-    const response = await fetch(`${API_BASE}/chat/send`, {
+    // 传入当前会话 ID，确保消息持久化到用户选中的会话
+    if (conversationId) {
+      body.conversationId = conversationId
+    }
+
+    const response = await fetch(apiUrl('/api/chat/send'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

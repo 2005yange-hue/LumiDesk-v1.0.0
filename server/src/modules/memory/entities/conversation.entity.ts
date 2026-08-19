@@ -18,6 +18,14 @@ export class Conversation {
   @Column({ type: 'int', default: 0 })
   message_count: number
 
+  /** 已压缩的历史对话摘要；原始消息仍保留在 messages 表中。 */
+  @Column({ type: 'text', nullable: true })
+  summary: string | null
+
+  /** 已进入 summary 的消息数，用作 messages 表的稳定偏移量。 */
+  @Column({ type: 'int', default: 0 })
+  summary_message_count: number
+
   @CreateDateColumn()
   created_at: Date
 
