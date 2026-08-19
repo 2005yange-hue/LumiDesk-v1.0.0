@@ -132,13 +132,6 @@ LumiDesk Portable/LumiDesk.exe
 | [待办事项](./docs/TODO.md) | 已知限制和后续计划 |
 | [开发规范](./docs/DEVELOPMENT_RULES.md) | 代码和协作规范 |
 
-## 隐私与安全
-
-- 不要提交 `.env`、API Key、Cookie、数据库、用户头像、聊天记录或本地音频。
-- 不要将 `GPT-SoVITS-v2pro-20250604/`、`node_modules/`、`dist/`、`.build/` 或便携版目录上传到 Git。
-- 提交前使用 `git status` 和 `git diff --cached --name-only` 检查暂存区。
-- 如果密钥曾经误提交，应立即在 Provider 平台撤销并重新生成；删除文件本身不能消除 Git 历史中的泄露。
-
 ## v1.0.0
 
 v1.0.0 是 LumiDesk 的首个完整桌面发布版本，包含 SQLite 默认运行、Electron 内置后端、Live2D 桌宠、表现调试、聊天上下文、记忆/情绪/关系系统以及可选语音能力。
